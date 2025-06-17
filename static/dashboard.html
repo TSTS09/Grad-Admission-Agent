@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STEM Grad Assistant - Dashboard</title>
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1 class="logo">🎓 STEM Grad Assistant</h1>
+                <p class="tagline">Your AI-powered admissions guide</p>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="/" class="nav-item active">
+                    <span class="nav-icon">📊</span>
+                    <span>Dashboard</span>
+                </a>
+                <a href="/chat" class="nav-item">
+                    <span class="nav-icon">💬</span>
+                    <span>AI Chat</span>
+                </a>
+                <a href="#faculty" class="nav-item">
+                    <span class="nav-icon">👨‍🎓</span>
+                    <span>Faculty Search</span>
+                </a>
+                <a href="#programs" class="nav-item">
+                    <span class="nav-icon">🏫</span>
+                    <span>Programs</span>
+                </a>
+                <a href="#applications" class="nav-item">
+                    <span class="nav-icon">📄</span>
+                    <span>Applications</span>
+                </a>
+            </nav>
+
+            <div class="ai-assistant-widget">
+                <h3>💡 AI Assistant</h3>
+                <div class="quick-suggestions">
+                    <button class="suggestion-btn" onclick="quickQuery('Find ML professors at top 10 universities')">
+                        Find ML Professors
+                    </button>
+                    <button class="suggestion-btn" onclick="quickQuery('Show upcoming deadlines')">
+                        Show Deadlines
+                    </button>
+                    <button class="suggestion-btn" onclick="quickQuery('Compare CS programs at Stanford vs MIT')">
+                        Compare Programs
+                    </button>
+                </div>
+                <input type="text" 
+                       id="quickQueryInput" 
+                       placeholder="Ask anything about grad admissions..." 
+                       class="quick-query-input"
+                       onkeypress="handleQuickQuery(event)">
+            </div>
+
+            <div class="stats-widget">
+                <h3>📈 Quick Stats</h3>
+                <div class="stat-grid">
+                    <div class="stat-item">
+                        <span class="stat-number" id="universityCount">247</span>
+                        <span class="stat-label">Universities</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number" id="facultyCount">1,840</span>
+                        <span class="stat-label">Faculty</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number" id="dataFreshness">94%</span>
+                        <span class="stat-label">Data Fresh</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="main-header">
+                <div class="header-left">
+                    <h2>Dashboard</h2>
+                    <p class="subtitle">Your personalized admissions overview</p>
+                </div>
+                <div class="header-right">
+                    <div class="search-container">
+                        <input type="text" placeholder="Search universities, faculty, programs..." class="header-search">
+                        <button class="search-btn">🔍</button>
+                    </div>
+                    <div class="user-menu">
+                        <button class="user-btn">👤</button>
+                    </div>
+                </div>
+            </header>
+
+            <div class="dashboard-grid" id="dashboardGrid">
+                <!-- Progress Card -->
+                <div class="card progress-card">
+                    <div class="card-header">
+                        <h3>Application Progress</h3>
+                        <span class="card-icon">🎯</span>
+                    </div>
+                    <div class="progress-content">
+                        <div class="progress-circle">
+                            <svg class="progress-ring" width="120" height="120">
+                                <circle class="progress-ring-bg" cx="60" cy="60" r="50"></circle>
+                                <circle class="progress-ring-fill" cx="60" cy="60" r="50" 
+                                        style="stroke-dasharray: 314; stroke-dashoffset: 78.5;"></circle>
+                            </svg>
+                            <div class="progress-text">
+                                <span class="progress-number">6/8</span>
+                                <span class="progress-label">Applications</span>
+                            </div>
+                        </div>
+                        <div class="progress-stats">
+                            <div class="stat">
+                                <span class="value">3</span>
+                                <span class="label">Submitted</span>
+                            </div>
+                            <div class="stat">
+                                <span class="value">2</span>
+                                <span class="label">In Progress</span>
+                            </div>
+                            <div class="stat">
+                                <span class="value">3</span>
+                                <span class="label">To Start</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Faculty Matches Card -->
+                <div class="card faculty-card large">
+                    <div class="card-header">
+                        <h3>Top Faculty Matches</h3>
+                        <span class="card-icon">👨‍🎓</span>
+                        <button class="refresh-btn" onclick="refreshFacultyMatches()">🔄</button>
+                    </div>
+                    <div class="faculty-list" id="facultyList">
+                        <!-- Faculty items will be populated by JavaScript -->
+                    </div>
+                    <button class="view-all-btn">View All Matches</button>
+                </div>
+
+                <!-- Deadlines Card -->
+                <div class="card deadlines-card">
+                    <div class="card-header">
+                        <h3>Upcoming Deadlines</h3>
+                        <span class="card-icon">⏰</span>
+                    </div>
+                    <div class="deadlines-list" id="deadlinesList">
+                        <!-- Deadlines will be populated by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Research Insights Card -->
+                <div class="card research-card large">
+                    <div class="card-header">
+                        <h3>Research Area Analysis</h3>
+                        <span class="card-icon">🔬</span>
+                    </div>
+                    <div class="research-content">
+                        <div class="research-interests">
+                            <h4>Your Research Interests</h4>
+                            <div class="tag-container" id="userInterests">
+                                <!-- Tags will be populated -->
+                            </div>
+                        </div>
+                        <div class="trending-areas">
+                            <h4>Trending at Target Schools</h4>
+                            <div class="tag-container" id="trendingAreas">
+                                <!-- Tags will be populated -->
+                            </div>
+                        </div>
+                        <div class="ai-insight">
+                            <div class="insight-header">
+                                <span class="insight-icon">💡</span>
+                                <span class="insight-title">AI Insight</span>
+                            </div>
+                            <p class="insight-text" id="aiInsightText">
+                                <!-- AI insight will be populated -->
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- University Rankings Card -->
+                <div class="card rankings-card">
+                    <div class="card-header">
+                        <h3>Target Schools</h3>
+                        <span class="card-icon">🏫</span>
+                    </div>
+                    <div class="rankings-list" id="rankingsList">
+                        <!-- Rankings will be populated -->
+                    </div>
+                </div>
+
+                <!-- Documents Card -->
+                <div class="card documents-card">
+                    <div class="card-header">
+                        <h3>Document Status</h3>
+                        <span class="card-icon">📄</span>
+                    </div>
+                    <div class="documents-list" id="documentsList">
+                        <!-- Documents will be populated -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <p>Loading your personalized data...</p>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/dashboard.js"></script>
+</body>
+</html>
