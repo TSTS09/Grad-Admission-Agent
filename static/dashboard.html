@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,6 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
     <div class="app-container">
         <aside class="sidebar">
@@ -53,11 +55,8 @@
                         Compare Programs
                     </button>
                 </div>
-                <input type="text" 
-                       id="quickQueryInput" 
-                       placeholder="Ask anything about grad admissions..." 
-                       class="quick-query-input"
-                       onkeypress="handleQuickQuery(event)">
+                <input type="text" id="quickQueryInput" placeholder="Ask anything about grad admissions..."
+                    class="quick-query-input" onkeypress="handleQuickQuery(event)">
             </div>
 
             <div class="stats-widget">
@@ -87,7 +86,8 @@
                 </div>
                 <div class="header-right">
                     <div class="search-container">
-                        <input type="text" placeholder="Search universities, faculty, programs..." class="header-search">
+                        <input type="text" placeholder="Search universities, faculty, programs..."
+                            class="header-search">
                         <button class="search-btn">🔍</button>
                     </div>
                     <div class="user-menu">
@@ -107,8 +107,8 @@
                         <div class="progress-circle">
                             <svg class="progress-ring" width="120" height="120">
                                 <circle class="progress-ring-bg" cx="60" cy="60" r="50"></circle>
-                                <circle class="progress-ring-fill" cx="60" cy="60" r="50" 
-                                        style="stroke-dasharray: 314; stroke-dashoffset: 78.5;"></circle>
+                                <circle class="progress-ring-fill" cx="60" cy="60" r="50"
+                                    style="stroke-dasharray: 314; stroke-dashoffset: 78.5;"></circle>
                             </svg>
                             <div class="progress-text">
                                 <span class="progress-number">6/8</span>
@@ -222,4 +222,5 @@
     <script src="/static/js/api.js"></script>
     <script src="/static/js/dashboard.js"></script>
 </body>
+
 </html>

@@ -23,28 +23,29 @@ logger = logging.getLogger(__name__)
 # Global workflow instance
 workflow_instance = None
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan management"""
     # Startup
     logger.info("Starting STEM Graduate Admissions Assistant")
-    
+
     # Initialize database
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     # Initialize Redis
     await init_redis()
-    
+
     # Initialize LangGraph workflow
     global workflow_instance
     workflow_instance = STEMAdmissionsWorkflow()
     await workflow_instance.initialize()
-    
+
     logger.info("Application startup complete")
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down application")
     if workflow_instance:
@@ -79,17 +80,21 @@ app.include_router(api_router, prefix="/api/v1")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Serve frontend
+
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_dashboard():
     """Serve the main dashboard"""
     with open("static/dashboard.html", "r") as f:
         return HTMLResponse(content=f.read())
 
+
 @app.get("/chat", response_class=HTMLResponse)
 async def serve_chat():
     """Serve the chat interface"""
     with open("static/chat.html", "r") as f:
         return HTMLResponse(content=f.read())
+
 
 @app.get("/health")
 async def health_check():
@@ -100,9 +105,11 @@ async def health_check():
         "environment": settings.ENVIRONMENT
     }
 
+
 def get_workflow() -> STEMAdmissionsWorkflow:
     """Get the global workflow instance"""
     return workflow_instance
+
 
 if __name__ == "__main__":
     uvicorn.run(
