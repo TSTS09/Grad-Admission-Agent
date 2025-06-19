@@ -2,7 +2,7 @@ import asyncio
 from typing import List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.worker.celery_app import celery_app
-from app.scrapers.university_spider import UniversitySpider
+from app.scrapers.university_scraper import UniversitySpider
 from app.scrapers.social_media import RedditMonitor, TwitterMonitor
 from app.database import AsyncSessionLocal
 from app.db.models.faculty import Faculty

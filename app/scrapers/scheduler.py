@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Any
 from enum import Enum
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.scrapers.university_spider import UniversitySpider
+from app.scrapers.university_scraper import UniversitySpider
 from app.scrapers.social_media import RedditMonitor, TwitterMonitor
 from app.database import AsyncSessionLocal
 from app.services.faculty import create_or_update_faculty
