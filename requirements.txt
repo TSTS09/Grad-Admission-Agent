@@ -1,0 +1,66 @@
+# Core Framework
+fastapi
+uvicorn[standard]
+pydantic
+python-multipart
+
+# Firebase & Google Cloud
+firebase-admin
+google-cloud-firestore
+google-cloud-storage
+
+# AI & ML
+openai
+tiktoken
+
+# Web Scraping & Real-time Data
+aiohttp
+beautifulsoup4
+requests
+lxml
+selenium
+playwright
+
+# Search & Data Sources
+tavily-python
+googlesearch-python
+wikipedia
+
+# Social Media APIs
+praw
+tweepy
+
+# Data Processing
+pandas
+numpy
+
+# Async Support
+asyncio
+aiofiles
+
+# Logging & Monitoring
+structlog
+
+# Date/Time
+python-dateutil
+
+# Environment
+python-dotenv
+
+# Security
+python-jose[cryptography]
+passlib[bcrypt]
+
+# HTTP Client
+httpx
+
+# Utilities
+Pillow
+PyYAML
+
+# Development & Testing
+pytest
+pytest-asyncio
+black
+isort
+mypy
