@@ -2,7 +2,7 @@
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 from pydantic import BaseModel, Field
-from app.core.firebase_config import get_firebase
+from app.core.config import get_firebase
 
 class FirebaseBaseModel(BaseModel):
     """Base model for Firebase documents"""

@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import uvicorn
 
-from app.core.firebase_config import init_firebase, get_firebase
+from app.core.config import init_firebase, get_firebase
 from app.agents.cost_effective_agents import ChatOrchestrator
 from app.scrapers.real_university_scraper import ScrapingOrchestrator
 from app.models.firebase_models import ChatSession, ChatMessage, Faculty, Program
