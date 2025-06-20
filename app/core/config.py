@@ -1,297 +1,233 @@
 import os
-from typing import Any, Dict, List, Optional, Union
-from pydantic import BaseSettings, validator
-from functools import lru_cache
+import json
+import asyncio
+from typing import Dict, Any, List, Optional
+from pydantic_settings import BaseSettings
+from pydantic import Field
+import firebase_admin
+from firebase_admin import credentials, firestore, storage
+from google.cloud.firestore import AsyncClient
+from datetime import datetime
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 class Settings(BaseSettings):
-    """Application settings with validation"""
+    """Application settings using Pydantic Settings"""
     
     # Environment
-    ENVIRONMENT: str = "development"
-    DEBUG: bool = False
+    ENVIRONMENT: str = Field(default="development", description="Environment")
+    DEBUG: bool = Field(default=True, description="Debug mode")
     
-    # Security
-    SECRET_KEY: str = "your-secret-key-change-in-production"
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
+    # API Keys
+    OPENAI_API_KEY: str = Field(..., description="OpenAI API key")
+    TAVILY_API_KEY: str = Field(..., description="Tavily API key for web search")
     
-    # Firebase
-    FIREBASE_PROJECT_ID: str = "stem-grad-assistant"
-    FIREBASE_STORAGE_BUCKET: str = "stem-grad-assistant.appspot.com"
-    FIREBASE_CONFIG: Optional[str] = None  # JSON string for credentials
+    # Optional API Keys
+    REDDIT_CLIENT_ID: Optional[str] = Field(default=None, description="Reddit client ID")
+    REDDIT_CLIENT_SECRET: Optional[str] = Field(default=None, description="Reddit client secret")
+    TWITTER_BEARER_TOKEN: Optional[str] = Field(default=None, description="Twitter bearer token")
     
-    # External APIs
-    OPENAI_API_KEY: str = ""
-    TAVILY_API_KEY: str = ""
-    REDDIT_CLIENT_ID: str = ""
-    REDDIT_CLIENT_SECRET: str = ""
-    TWITTER_BEARER_TOKEN: str = ""
+    # Firebase Configuration
+    FIREBASE_PROJECT_ID: str = Field(default="afya-a1006", description="Firebase project ID")
+    FIREBASE_STORAGE_BUCKET: str = Field(default="stem-grad-assistant.appspot.com", description="Firebase storage bucket")
+    FIREBASE_CONFIG: Optional[str] = Field(default=None, description="Firebase service account JSON")
     
-    # Server
-    HOST: str = "0.0.0.0"
-    PORT: int = 8000
-    WORKERS: int = 1
-    
-    # CORS
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
-    
-    # Rate Limiting
-    RATE_LIMIT_REQUESTS: int = 100
-    RATE_LIMIT_WINDOW: int = 60
-    
-    # Scraping
-    ENABLE_BACKGROUND_SCRAPING: bool = False
-    SCRAPING_DELAY: float = 1.0
-    SCRAPING_USER_AGENT: str = "STEM-Admissions-Assistant/2.0 (Educational Research)"
-    SCRAPING_MAX_CONCURRENT: int = 5
-    SCRAPING_TIMEOUT: int = 30
+    # Application Settings
+    APP_NAME: str = Field(default="STEM Graduate Admissions Assistant", description="Application name")
+    APP_VERSION: str = Field(default="2.0.0", description="Application version")
     
     # Logging
-    LOG_LEVEL: str = "INFO"
-    LOG_FORMAT: str = "json"
+    LOG_LEVEL: str = Field(default="INFO", description="Log level")
+    LOG_FORMAT: str = Field(default="json", description="Log format")
     
-    # AI Configuration
-    OPENAI_MODEL: str = "gpt-3.5-turbo"
-    OPENAI_MAX_TOKENS: int = 1000
-    OPENAI_TEMPERATURE: float = 0.3
+    # Scraping Settings
+    ENABLE_BACKGROUND_SCRAPING: bool = Field(default=False, description="Enable background scraping")
+    SCRAPING_INTERVAL_HOURS: int = Field(default=24, description="Scraping interval in hours")
+    MAX_CONCURRENT_SCRAPES: int = Field(default=5, description="Max concurrent scraping jobs")
     
-    # Cache
-    CACHE_TTL: int = 3600  # 1 hour
+    # Rate Limiting
+    RATE_LIMIT_PER_MINUTE: int = Field(default=60, description="Rate limit per minute")
     
-    # Monitoring
-    ENABLE_METRICS: bool = True
-    HEALTH_CHECK_TIMEOUT: int = 30
-    
-    @validator("ENVIRONMENT")
-    def validate_environment(cls, v):
-        allowed = ["development", "staging", "production"]
-        if v not in allowed:
-            raise ValueError(f"ENVIRONMENT must be one of {allowed}")
-        return v
-    
-    @validator("LOG_LEVEL")
-    def validate_log_level(cls, v):
-        allowed = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
-        if v.upper() not in allowed:
-            raise ValueError(f"LOG_LEVEL must be one of {allowed}")
-        return v.upper()
-    
-    @validator("ALLOWED_ORIGINS", pre=True)
-    def validate_cors_origins(cls, v):
-        if isinstance(v, str):
-            # Handle comma-separated string
-            return [origin.strip() for origin in v.split(",")]
-        return v
-    
-    @validator("DEBUG", pre=True)
-    def set_debug_from_environment(cls, v, values):
-        if values.get("ENVIRONMENT") == "development":
-            return True
-        return v
-    
-    @property
-    def is_production(self) -> bool:
-        return self.ENVIRONMENT == "production"
-    
-    @property
-    def is_development(self) -> bool:
-        return self.ENVIRONMENT == "development"
+    # CORS Settings
+    CORS_ORIGINS: List[str] = Field(default=["*"], description="CORS allowed origins")
     
     class Config:
         env_file = ".env"
+        env_file_encoding = "utf-8"
         case_sensitive = True
 
-@lru_cache()
-def get_settings() -> Settings:
-    """Get cached settings instance"""
-    return Settings()
-
-# Configuration for different environments
-class DevelopmentConfig(Settings):
-    """Development environment configuration"""
-    ENVIRONMENT: str = "development"
-    DEBUG: bool = True
-    LOG_LEVEL: str = "DEBUG"
-    ENABLE_BACKGROUND_SCRAPING: bool = False
-
-class ProductionConfig(Settings):
-    """Production environment configuration"""
-    ENVIRONMENT: str = "production"
-    DEBUG: bool = False
-    LOG_LEVEL: str = "INFO"
-    ENABLE_BACKGROUND_SCRAPING: bool = True
-    WORKERS: int = 2
-
-class TestingConfig(Settings):
-    """Testing environment configuration"""
-    ENVIRONMENT: str = "testing"
-    DEBUG: bool = False
-    LOG_LEVEL: str = "WARNING"
-    ENABLE_BACKGROUND_SCRAPING: bool = False
-
-# Factory function to get appropriate config
-def get_config() -> Settings:
-    """Get configuration based on environment"""
-    env = os.getenv("ENVIRONMENT", "development").lower()
-    
-    if env == "production":
-        return ProductionConfig()
-    elif env == "testing":
-        return TestingConfig()
-    else:
-        return DevelopmentConfig()
-
 # Global settings instance
-settings = get_settings()
+settings = Settings()
 
-# Constants
-class Constants:
-    """Application constants"""
+class FirebaseManager:
+    """Firebase manager for Firestore and Storage operations"""
     
-    # University rankings (top CS schools)
-    TOP_CS_UNIVERSITIES = [
-        "Stanford University",
-        "Massachusetts Institute of Technology",
-        "Carnegie Mellon University",
-        "University of California, Berkeley",
-        "California Institute of Technology",
-        "Harvard University",
-        "Princeton University",
-        "University of Toronto",
-        "ETH Zurich",
-        "University of Oxford"
-    ]
+    def __init__(self):
+        self.db: Optional[AsyncClient] = None
+        self.bucket = None
+        self._initialize_firebase()
     
-    # Research areas
-    RESEARCH_AREAS = [
-        "Machine Learning",
-        "Artificial Intelligence",
-        "Computer Vision",
-        "Natural Language Processing",
-        "Robotics",
-        "Systems",
-        "Algorithms",
-        "Theory",
-        "Human Computer Interaction",
-        "Software Engineering",
-        "Cybersecurity",
-        "Data Science",
-        "Bioinformatics",
-        "Quantum Computing",
-        "Computer Graphics",
-        "Database Systems",
-        "Distributed Systems",
-        "Programming Languages"
-    ]
+    def _initialize_firebase(self):
+        """Initialize Firebase Admin SDK"""
+        try:
+            # Initialize from service account file or environment
+            if os.path.exists("firebase-credentials.json"):
+                cred = credentials.Certificate("firebase-credentials.json")
+            else:
+                # Use environment variable for deployment
+                firebase_config = settings.FIREBASE_CONFIG
+                if firebase_config:
+                    cred = credentials.Certificate(json.loads(firebase_config))
+                else:
+                    # Use default credentials for Cloud Run/App Engine
+                    cred = credentials.ApplicationDefault()
+            
+            # Initialize app if not already done
+            if not firebase_admin._apps:
+                app = firebase_admin.initialize_app(cred, {
+                    'storageBucket': settings.FIREBASE_STORAGE_BUCKET
+                })
+            
+            # Initialize Firestore client
+            self.db = firestore.AsyncClient()
+            
+            # Initialize Storage bucket
+            self.bucket = storage.bucket()
+            
+            logger.info("Firebase initialized successfully")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize Firebase: {e}")
+            raise
     
-    # Degree types
-    DEGREE_TYPES = ["PhD", "MS", "MEng", "MCS", "MS/PhD"]
+    async def create_document(self, collection: str, doc_id: str = None, data: Dict[str, Any] = None) -> str:
+        """Create a document in Firestore"""
+        try:
+            if data is None:
+                data = {}
+            
+            # Add timestamps
+            data['created_at'] = datetime.utcnow()
+            data['updated_at'] = datetime.utcnow()
+            
+            if doc_id:
+                doc_ref = self.db.collection(collection).document(doc_id)
+                await doc_ref.set(data)
+                return doc_id
+            else:
+                doc_ref = await self.db.collection(collection).add(data)
+                return doc_ref[1].id
+                
+        except Exception as e:
+            logger.error(f"Error creating document in {collection}: {e}")
+            raise
     
-    # Hiring statuses
-    HIRING_STATUSES = ["hiring", "maybe", "not_hiring", "unknown"]
+    async def get_document(self, collection: str, doc_id: str) -> Optional[Dict[str, Any]]:
+        """Get a document from Firestore"""
+        try:
+            doc_ref = self.db.collection(collection).document(doc_id)
+            doc = await doc_ref.get()
+            
+            if doc.exists:
+                data = doc.to_dict()
+                data['id'] = doc.id
+                return data
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting document {doc_id} from {collection}: {e}")
+            return None
     
-    # Scraping priorities
-    SCRAPING_PRIORITIES = ["critical", "high", "medium", "low"]
+    async def update_document(self, collection: str, doc_id: str, data: Dict[str, Any]) -> bool:
+        """Update a document in Firestore"""
+        try:
+            data['updated_at'] = datetime.utcnow()
+            doc_ref = self.db.collection(collection).document(doc_id)
+            await doc_ref.update(data)
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error updating document {doc_id} in {collection}: {e}")
+            return False
     
-    # Social media sources
-    SOCIAL_MEDIA_SOURCES = ["reddit", "twitter", "linkedin"]
+    async def query_collection(self, collection: str, filters: List[tuple] = None, 
+                              order_by: str = None, limit: int = None) -> List[Dict[str, Any]]:
+        """Query a collection with filters"""
+        try:
+            query = self.db.collection(collection)
+            
+            # Apply filters
+            if filters:
+                for field, operator, value in filters:
+                    query = query.where(field, operator, value)
+            
+            # Apply ordering
+            if order_by:
+                query = query.order_by(order_by)
+            
+            # Apply limit
+            if limit:
+                query = query.limit(limit)
+            
+            docs = await query.get()
+            results = []
+            
+            for doc in docs:
+                data = doc.to_dict()
+                data['id'] = doc.id
+                results.append(data)
+            
+            return results
+            
+        except Exception as e:
+            logger.error(f"Error querying collection {collection}: {e}")
+            return []
     
-    # Application deadlines (typical months)
-    APPLICATION_DEADLINE_MONTHS = [
-        "December", "January", "February", "March"
-    ]
-    
-    # Countries
-    COUNTRIES = ["USA", "Canada", "United Kingdom", "Switzerland", "Germany", "Netherlands", "France", "Australia"]
+    async def search_documents(self, collection: str, search_field: str, 
+                              search_term: str, limit: int = 50) -> List[Dict[str, Any]]:
+        """Search documents using array-contains or text matching"""
+        try:
+            # For array fields (like research_areas)
+            if isinstance(search_term, str) and search_field in ['research_areas', 'specializations']:
+                query = self.db.collection(collection).where(search_field, 'array_contains', search_term)
+            else:
+                # For text fields - Firestore doesn't have full-text search, so we'll do prefix matching
+                query = self.db.collection(collection).where(
+                    search_field, '>=', search_term
+                ).where(
+                    search_field, '<=', search_term + '\uf8ff'
+                )
+            
+            if limit:
+                query = query.limit(limit)
+            
+            docs = await query.get()
+            results = []
+            
+            for doc in docs:
+                data = doc.to_dict()
+                data['id'] = doc.id
+                results.append(data)
+            
+            return results
+            
+        except Exception as e:
+            logger.error(f"Error searching {collection} for {search_term}: {e}")
+            return []
 
-# Validation functions
-def validate_api_keys():
-    """Validate that required API keys are present"""
-    required_keys = []
-    
-    if not settings.OPENAI_API_KEY:
-        required_keys.append("OPENAI_API_KEY")
-    
-    if settings.ENABLE_BACKGROUND_SCRAPING:
-        if not settings.REDDIT_CLIENT_ID:
-            required_keys.append("REDDIT_CLIENT_ID")
-        if not settings.REDDIT_CLIENT_SECRET:
-            required_keys.append("REDDIT_CLIENT_SECRET")
-    
-    if required_keys and settings.is_production:
-        raise ValueError(f"Missing required API keys in production: {required_keys}")
-    
-    return len(required_keys) == 0
+# Global Firebase manager instance
+firebase_manager: Optional[FirebaseManager] = None
 
-def get_database_url() -> str:
-    """Get Firebase project URL"""
-    return f"https://{settings.FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com/"
+def get_firebase() -> FirebaseManager:
+    """Get the global Firebase manager instance"""
+    global firebase_manager
+    if firebase_manager is None:
+        firebase_manager = FirebaseManager()
+    return firebase_manager
 
-def get_storage_url() -> str:
-    """Get Firebase Storage URL"""
-    return f"gs://{settings.FIREBASE_STORAGE_BUCKET}"
-
-# Utility functions
-def get_cors_origins() -> List[str]:
-    """Get CORS origins for current environment"""
-    if settings.is_production:
-        return [
-            f"https://{settings.FIREBASE_PROJECT_ID}.web.app",
-            f"https://{settings.FIREBASE_PROJECT_ID}.firebaseapp.com"
-        ]
-    else:
-        return settings.ALLOWED_ORIGINS
-
-def get_openai_config() -> Dict[str, Any]:
-    """Get OpenAI configuration"""
-    return {
-        "api_key": settings.OPENAI_API_KEY,
-        "model": settings.OPENAI_MODEL,
-        "max_tokens": settings.OPENAI_MAX_TOKENS,
-        "temperature": settings.OPENAI_TEMPERATURE
-    }
-
-def get_scraping_config() -> Dict[str, Any]:
-    """Get scraping configuration"""
-    return {
-        "enabled": settings.ENABLE_BACKGROUND_SCRAPING,
-        "delay": settings.SCRAPING_DELAY,
-        "user_agent": settings.SCRAPING_USER_AGENT,
-        "max_concurrent": settings.SCRAPING_MAX_CONCURRENT,
-        "timeout": settings.SCRAPING_TIMEOUT
-    }
-
-# Feature flags
-class FeatureFlags:
-    """Feature flags for enabling/disabling features"""
-    
-    ENABLE_CHAT = True
-    ENABLE_FACULTY_SEARCH = True
-    ENABLE_PROGRAM_SEARCH = True
-    ENABLE_SOCIAL_MEDIA_SCRAPING = settings.ENABLE_BACKGROUND_SCRAPING
-    ENABLE_UNIVERSITY_SCRAPING = settings.ENABLE_BACKGROUND_SCRAPING
-    ENABLE_USER_AUTHENTICATION = False  # Disable for now
-    ENABLE_RATE_LIMITING = settings.is_production
-    ENABLE_CACHING = True
-    ENABLE_ANALYTICS = settings.is_production
-    ENABLE_ERROR_REPORTING = settings.is_production
-
-# Version info
-VERSION = "2.0.0"
-API_VERSION = "v1"
-BUILD_DATE = "2024-01-15"
-
-# Export commonly used items
-__all__ = [
-    "settings",
-    "Constants",
-    "FeatureFlags",
-    "get_settings",
-    "get_config",
-    "validate_api_keys",
-    "get_cors_origins",
-    "get_openai_config",
-    "get_scraping_config",
-    "VERSION",
-    "API_VERSION"
-]
+async def init_firebase():
+    """Initialize Firebase manager"""
+    global firebase_manager
+    firebase_manager = FirebaseManager()
+    return firebase_manager
