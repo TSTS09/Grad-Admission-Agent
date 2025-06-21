@@ -1,280 +1,360 @@
 #!/usr/bin/env python3
 """
-STEM Graduate Admissions Assistant - Quick Start Test
-Tests basic functionality and configuration
+Setup script for STEM Graduate Admissions Assistant - Real Data Edition
+No API keys required! Uses HuggingFace transformers and real web scraping.
 """
+
 import os
 import sys
-import asyncio
+import subprocess
+import sqlite3
 from pathlib import Path
 
 def print_header():
-    print("🎓 STEM Graduate Admissions Assistant - Quick Start Test")
+    print("🎓 STEM Graduate Admissions Assistant - Real Data Setup")
+    print("=" * 60)
+    print("✅ No OpenAI API keys needed")
+    print("✅ No paid APIs required") 
+    print("✅ Uses HuggingFace transformers (free)")
+    print("✅ Real web scraping")
+    print("✅ Search history with SQLite")
     print("=" * 60)
 
-def check_dependencies():
-    """Check if required packages are installed"""
-    print("📦 Checking Dependencies...")
+def check_python_version():
+    """Check Python version"""
+    print("🐍 Checking Python version...")
     
-    # Package name -> (import name, display name)
-    required_packages = [
-        ('fastapi', 'fastapi'),
-        ('uvicorn', 'uvicorn'), 
-        ('openai', 'openai'),
-        ('aiohttp', 'aiohttp'),
-        ('bs4', 'beautifulsoup4'),  # Fixed: bs4 is the import name
-        ('tavily', 'tavily-python'),  # Fixed: tavily is the import name
-        ('pydantic', 'pydantic'),
-        ('pydantic_settings', 'pydantic-settings'),
-        ('firebase_admin', 'firebase-admin')
-    ]
-    
-    missing_packages = []
-    
-    for import_name, display_name in required_packages:
-        try:
-            __import__(import_name)
-            print(f"   ✅ {display_name}")
-        except ImportError:
-            print(f"   ❌ {display_name} - Missing")
-            missing_packages.append(display_name)
-    
-    if missing_packages:
-        print(f"\n❌ Missing packages: {', '.join(missing_packages)}")
-        print("Install with: pip install " + " ".join(missing_packages))
+    if sys.version_info < (3, 8):
+        print("❌ Python 3.8+ required. You have:", sys.version)
         return False
     
+    print(f"✅ Python {sys.version_info.major}.{sys.version_info.minor} detected")
     return True
 
-def check_environment():
-    """Check environment variables"""
-    print("1. Checking Environment Variables...")
-    
-    required_vars = ['OPENAI_API_KEY', 'TAVILY_API_KEY']
-    optional_vars = ['REDDIT_CLIENT_ID', 'REDDIT_CLIENT_SECRET', 'TWITTER_BEARER_TOKEN']
-    
-    all_good = True
-    
-    for var in required_vars:
-        if os.getenv(var):
-            print(f"   ✅ {var}: Set")
-        else:
-            print(f"   ❌ {var}: Missing")
-            all_good = False
-    
-    for var in optional_vars:
-        if os.getenv(var):
-            print(f"   ✅ {var}: Set (optional)")
-        else:
-            print(f"   ⚠️  {var}: Not set (optional)")
-    
-    return all_good
-
-def test_imports():
-    """Test importing core modules"""
-    print("2. Testing Module Imports...")
+def install_dependencies():
+    """Install required dependencies"""
+    print("\n📦 Installing dependencies...")
     
     try:
-        # Test basic imports
-        from pydantic_settings import BaseSettings
-        print("   ✅ pydantic_settings.BaseSettings")
+        # Install requirements
+        subprocess.check_call([
+            sys.executable, "-m", "pip", "install", "-r", "requirements.txt"
+        ])
+        print("✅ Dependencies installed successfully")
+        return True
         
-        from app.core.logging import setup_logging, get_logger
-        print("   ✅ app.core.logging")
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Failed to install dependencies: {e}")
+        print("\nTry installing manually:")
+        print("pip install fastapi uvicorn transformers torch beautifulsoup4 aiohttp")
+        return False
+
+def create_directory_structure():
+    """Create necessary directories"""
+    print("\n📁 Creating directory structure...")
+    
+    directories = [
+        "app",
+        "app/core",
+        "app/agents", 
+        "app/models",
+        "app/scrapers",
+        "static",
+        "static/css",
+        "static/js"
+    ]
+    
+    for directory in directories:
+        Path(directory).mkdir(parents=True, exist_ok=True)
         
-        # Test config with updated imports
-        from app.core.config import settings, get_firebase
-        print("   ✅ app.core.config")
+        # Create __init__.py files for Python packages
+        if directory.startswith("app"):
+            init_file = Path(directory) / "__init__.py"
+            if not init_file.exists():
+                init_file.touch()
+    
+    print("✅ Directory structure created")
+
+def create_config_file():
+    """Create a simple configuration file"""
+    print("\n⚙️  Creating configuration...")
+    
+    config_content = '''# app/core/config.py - Simple configuration for real data system
+import os
+from pathlib import Path
+
+class Settings:
+    """Simple settings class"""
+    
+    # App info
+    APP_NAME = "STEM Graduate Admissions Assistant"
+    APP_VERSION = "3.0.0"
+    
+    # Server settings
+    HOST = "0.0.0.0"
+    PORT = 8000
+    
+    # Database (SQLite)
+    DATABASE_PATH = "search_history.db"
+    
+    # Features
+    ENABLE_WEB_SCRAPING = True
+    ENABLE_SEARCH_HISTORY = True
+    
+    # HuggingFace model settings
+    HF_MODEL_NAME = "microsoft/DialoGPT-medium"
+    HF_MAX_LENGTH = 512
+    HF_TEMPERATURE = 0.7
+
+# Global settings instance
+settings = Settings()
+'''
+    
+    config_path = Path("app/core/config.py")
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    with open(config_path, "w") as f:
+        f.write(config_content)
+    
+    print("✅ Configuration created")
+
+def create_logging_config():
+    """Create logging configuration"""
+    print("\n📝 Setting up logging...")
+    
+    logging_content = '''# app/core/logging.py - Simple logging setup
+import logging
+import sys
+
+def setup_logging(level="INFO"):
+    """Setup basic logging"""
+    logging.basicConfig(
+        level=getattr(logging, level.upper()),
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.StreamHandler(sys.stdout)
+        ]
+    )
+    
+    # Reduce noise from external libraries
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+
+def get_logger(name: str):
+    """Get a logger instance"""
+    return logging.getLogger(name)
+
+# Setup default logging
+setup_logging()
+'''
+    
+    logging_path = Path("app/core/logging.py")
+    with open(logging_path, "w") as f:
+        f.write(logging_content)
+    
+    print("✅ Logging configured")
+
+def initialize_database():
+    """Initialize SQLite database for search history"""
+    print("\n🗄️  Initializing database...")
+    
+    try:
+        conn = sqlite3.connect("search_history.db")
         
-        from app.models.firebase_models import University, Faculty, Program
-        print("   ✅ app.models.firebase_models")
+        # Create tables
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS search_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                query TEXT NOT NULL,
+                faculty_name TEXT,
+                university TEXT,
+                department TEXT,
+                email TEXT,
+                research_areas TEXT,
+                profile_url TEXT,
+                scraped_data TEXT,
+                search_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
         
-        from app.agents.cost_effective_agents import ChatOrchestrator
-        print("   ✅ app.agents.cost_effective_agents")
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS program_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                query TEXT NOT NULL,
+                program_name TEXT,
+                university TEXT,
+                degree_type TEXT,
+                requirements TEXT,
+                deadlines TEXT,
+                program_url TEXT,
+                scraped_data TEXT,
+                search_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
         
-        from app.scrapers.real_university_scraper import ScrapingOrchestrator
-        print("   ✅ app.scrapers.real_university_scraper")
+        conn.commit()
+        conn.close()
+        
+        print("✅ Database initialized")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Database initialization failed: {e}")
+        return False
+
+def test_system():
+    """Test the system setup"""
+    print("\n🧪 Testing system...")
+    
+    try:
+        # Test imports
+        from app.core.logging import get_logger
+        from app.core.config import settings
+        print("✅ Core modules import successfully")
+        
+        # Test database
+        conn = sqlite3.connect("search_history.db")
+        conn.execute("SELECT 1")
+        conn.close()
+        print("✅ Database connection works")
+        
+        # Test if we can import AI libraries
+        try:
+            import transformers
+            import torch
+            print("✅ HuggingFace transformers available")
+        except ImportError as e:
+            print(f"⚠️  HuggingFace transformers not available: {e}")
+            print("   The system will work but AI features may be limited")
         
         return True
         
-    except ImportError as e:
-        print(f"   ❌ Import error: {e}")
-        return False
     except Exception as e:
-        print(f"   ❌ Unexpected error: {e}")
+        print(f"❌ System test failed: {e}")
         return False
 
-async def test_basic_functionality():
-    """Test basic functionality"""
-    print("3. Testing Basic Functionality...")
+def create_run_script():
+    """Create a simple run script"""
+    print("\n🚀 Creating run script...")
     
-    try:
-        # Import here to avoid issues if imports fail
-        from app.agents.cost_effective_agents import ChatOrchestrator
-        from app.scrapers.real_university_scraper import ScrapingOrchestrator
-        
-        # Test chat orchestrator
-        chat_orchestrator = ChatOrchestrator()
-        print("   ✅ ChatOrchestrator initialized")
-        
-        # Test scraping orchestrator
-        scraping_orchestrator = ScrapingOrchestrator()
-        print("   ✅ ScrapingOrchestrator initialized")
-        
-        # Test a simple query (without Firebase for now)
-        test_query = "Tell me about machine learning PhD programs"
-        try:
-            response = await chat_orchestrator.process_query(test_query)
-            if response and "response" in response:
-                print("   ✅ Basic chat processing works")
-                print(f"   📝 Sample response: {response['response'][:100]}...")
-            else:
-                print("   ⚠️  Chat processing returned unexpected format")
-        except Exception as e:
-            print(f"   ⚠️  Chat processing error (this may be expected without Firebase): {e}")
-        
-        return True
-        
-    except Exception as e:
-        print(f"   ❌ Basic functionality test failed: {e}")
-        return False
-
-def check_file_structure():
-    """Check if required files exist"""
-    print("4. Checking File Structure...")
-    
-    required_files = [
-        'app/main.py',
-        'app/core/__init__.py',
-        'app/core/config.py',
-        'app/core/logging.py',
-        'app/models/__init__.py',
-        'app/models/firebase_models.py',
-        'app/agents/__init__.py',
-        'app/agents/cost_effective_agents.py',
-        'app/scrapers/__init__.py',
-        'app/scrapers/real_university_scraper.py',
-        'static/css/dashboard.css',
-        'static/css/chat.css',
-        'static/js/api.js',
-        'static/js/chat.js',
-        'static/js/dashboard.js',
-        'static/dashboard.html',
-        'static/chat.html'
-    ]
-    
-    missing_files = []
-    
-    for file_path in required_files:
-        if Path(file_path).exists():
-            print(f"   ✅ {file_path}")
-        else:
-            print(f"   ❌ {file_path} - Missing")
-            missing_files.append(file_path)
-    
-    if missing_files:
-        print(f"\n⚠️  Missing files: {len(missing_files)} files need to be created")
-        return False
-    
-    return True
-
-def create_env_template():
-    """Create .env template if it doesn't exist"""
-    env_template = """# STEM Graduate Admissions Assistant Environment Variables
-
-# Required API Keys
-OPENAI_API_KEY=your_openai_api_key_here
-TAVILY_API_KEY=your_tavily_api_key_here
-
-# Optional API Keys for Social Media Monitoring
-REDDIT_CLIENT_ID=your_reddit_client_id
-REDDIT_CLIENT_SECRET=your_reddit_client_secret
-TWITTER_BEARER_TOKEN=your_twitter_bearer_token
-
-# Firebase Configuration
-FIREBASE_PROJECT_ID=afya-a1006
-FIREBASE_STORAGE_BUCKET=stem-grad-assistant.appspot.com
-
-# Application Settings
-ENVIRONMENT=development
-DEBUG=true
-ENABLE_BACKGROUND_SCRAPING=false
-LOG_LEVEL=INFO
+    run_script = '''#!/usr/bin/env python3
 """
-    
-    if not Path('.env').exists():
-        with open('.env', 'w') as f:
-            f.write(env_template)
-        print("📄 Created .env template file")
-        print("   Please edit .env with your actual API keys")
-    else:
-        print("📄 .env file already exists")
+Run script for STEM Graduate Admissions Assistant
+"""
 
-async def main():
-    """Main test function"""
-    print_header()
-    
-    # Check dependencies first
-    deps_ok = check_dependencies()
-    
-    # Continue with tests even if some dependencies seem missing
-    # (they might be false negatives)
-    
-    # Check environment variables
-    env_ok = check_environment()
-    
-    # Test imports
-    imports_ok = test_imports()
-    
-    # Check file structure
-    files_ok = check_file_structure()
-    
-    # Test basic functionality (only if imports worked)
-    if imports_ok:
-        functionality_ok = await test_basic_functionality()
-    else:
-        functionality_ok = False
-    
-    # Create .env template
-    create_env_template()
-    
-    # Summary
-    print("\n" + "=" * 60)
-    print("SUMMARY:")
-    print("=" * 60)
-    
-    if deps_ok and env_ok and imports_ok and files_ok and functionality_ok:
-        print("🎉 All tests passed! Your setup looks good.")
-        print("\nNext steps:")
-        print("1. Make sure your .env file has valid API keys")
-        print("2. Set up Firebase credentials if using Firebase")
-        print("3. Run the application: python app/main.py")
-        print("4. Visit: http://localhost:8000")
-    else:
-        print("⚠️  Some issues found. Please check details above.")
-        
-        if not deps_ok:
-            print("   - Some packages may not be detected correctly")
-        if not env_ok:
-            print("   - Set up required environment variables")
-        if not imports_ok:
-            print("   - Fix import errors (check dependencies)")
-        if not files_ok:
-            print("   - Create missing files")
-        if not functionality_ok:
-            print("   - Debug functionality issues")
-        
-        print("\nEven with some warnings, you may still be able to run the application.")
-        print("Try: python app/main.py")
+import uvicorn
+import sys
+from pathlib import Path
+
+# Add current directory to path
+sys.path.append(str(Path(__file__).parent))
 
 if __name__ == "__main__":
-    # Create __init__.py files if they don't exist
-    init_dirs = ['app', 'app/core', 'app/models', 'app/agents', 'app/scrapers']
-    for dir_path in init_dirs:
-        init_file = Path(dir_path) / '__init__.py'
-        if not init_file.exists():
-            init_file.parent.mkdir(parents=True, exist_ok=True)
-            init_file.touch()
+    print("🎓 Starting STEM Graduate Admissions Assistant...")
+    print("🌐 Visit: http://localhost:8000")
+    print("💬 Chat: http://localhost:8000/chat")
+    print("🛑 Stop with Ctrl+C")
+    print()
     
-    # Run the tests
-    asyncio.run(main())
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True
+    )
+'''
+    
+    with open("run_real_system.py", "w") as f:
+        f.write(run_script)
+    
+    # Make executable on Unix systems
+    if os.name != 'nt':
+        os.chmod("run_real_system.py", 0o755)
+    
+    print("✅ Run script created: run_real_system.py")
+
+def show_next_steps():
+    """Show next steps to user"""
+    print("\n" + "=" * 60)
+    print("🎉 SETUP COMPLETE!")
+    print("=" * 60)
+    
+    print("\n📋 Next Steps:")
+    print("1. Start the application:")
+    print("   python run_real_system.py")
+    print("   OR")
+    print("   python -m app.main")
+    
+    print("\n2. Open your browser:")
+    print("   Dashboard: http://localhost:8000")
+    print("   Chat: http://localhost:8000/chat")
+    
+    print("\n3. Try searching for:")
+    print("   • 'Stanford computer science faculty'")
+    print("   • 'MIT machine learning professors'")
+    print("   • 'Berkeley PhD requirements'")
+    
+    print("\n🔍 Features:")
+    print("✅ Real web scraping (no dummy data)")
+    print("✅ HuggingFace AI (no API keys needed)")
+    print("✅ Search history tracking")
+    print("✅ Professor contact information")
+    print("✅ University program details")
+    
+    print("\n💡 Tips:")
+    print("• Search history is saved locally in SQLite")
+    print("• No internet required after initial model download")
+    print("• Data is scraped fresh from university websites")
+    print("• Your searches are private and stored locally")
+
+def main():
+    """Main setup function"""
+    print_header()
+    
+    success = True
+    
+    # Check Python version
+    if not check_python_version():
+        success = False
+    
+    # Create directory structure
+    if success:
+        create_directory_structure()
+    
+    # Create configuration files
+    if success:
+        create_config_file()
+        create_logging_config()
+    
+    # Install dependencies
+    if success:
+        if not install_dependencies():
+            print("\n⚠️  Dependencies installation had issues, but continuing...")
+    
+    # Initialize database
+    if success:
+        if not initialize_database():
+            success = False
+    
+    # Test system
+    if success:
+        if not test_system():
+            print("\n⚠️  System test had issues, but may still work...")
+    
+    # Create run script
+    if success:
+        create_run_script()
+    
+    # Show next steps
+    show_next_steps()
+    
+    if success:
+        print("\n🎉 Setup completed successfully!")
+        print("Run: python run_real_system.py")
+    else:
+        print("\n❌ Setup completed with some issues.")
+        print("Check the error messages above and try running manually.")
+
+if __name__ == "__main__":
+    main()
