@@ -1,10 +1,10 @@
-# app/core/config.py - Updated configuration with proper Pydantic v2 imports
+# app/core/config.py - Updated configuration with all required fields
 import os
 import json
 import asyncio
 from typing import Dict, Any, List, Optional
-from pydantic_settings import BaseSettings  # Updated import
-from pydantic import Field
+from pydantic_settings import BaseSettings
+from pydantic import Field, ConfigDict
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
 from google.cloud.firestore import AsyncClient
@@ -18,9 +18,26 @@ def _get_logger():
 class Settings(BaseSettings):
     """Application settings using Pydantic Settings"""
     
+    model_config = ConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+        extra='allow'  # Allow extra fields to prevent validation errors
+    )
+    
     # Environment
     ENVIRONMENT: str = Field(default="development", description="Environment")
     DEBUG: bool = Field(default=True, description="Debug mode")
+    
+    # Security
+    SECRET_KEY: str = Field(default="your-super-secret-key-for-security", description="Secret key for JWT")
+    ALGORITHM: str = Field(default="HS256", description="JWT algorithm")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=480, description="Access token expiration")
+    
+    # Server Settings
+    HOST: str = Field(default="0.0.0.0", description="Server host")
+    PORT: int = Field(default=8000, description="Server port")
+    WORKERS: int = Field(default=1, description="Number of workers")
     
     # API Keys
     OPENAI_API_KEY: str = Field(..., description="OpenAI API key")
@@ -44,21 +61,43 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = Field(default="INFO", description="Log level")
     LOG_FORMAT: str = Field(default="json", description="Log format")
     
+    # CORS Settings
+    CORS_ORIGINS: List[str] = Field(default=["*"], description="CORS allowed origins")
+    ALLOWED_ORIGINS: Optional[str] = Field(default=None, description="Allowed origins as string")
+    
+    # Rate Limiting
+    RATE_LIMIT_PER_MINUTE: int = Field(default=60, description="Rate limit per minute")
+    RATE_LIMIT_REQUESTS: int = Field(default=100, description="Rate limit requests")
+    RATE_LIMIT_WINDOW: int = Field(default=60, description="Rate limit window")
+    ENABLE_RATE_LIMITING: bool = Field(default=True, description="Enable rate limiting")
+    
     # Scraping Settings
     ENABLE_BACKGROUND_SCRAPING: bool = Field(default=False, description="Enable background scraping")
     SCRAPING_INTERVAL_HOURS: int = Field(default=24, description="Scraping interval in hours")
     MAX_CONCURRENT_SCRAPES: int = Field(default=5, description="Max concurrent scraping jobs")
+    SCRAPING_MAX_CONCURRENT: int = Field(default=5, description="Max concurrent scrapes")
+    SCRAPING_DELAY: float = Field(default=1.0, description="Scraping delay")
+    SCRAPING_USER_AGENT: str = Field(default="STEM-Admissions-Assistant Bot 1.0 (Educational Research)", description="Scraping user agent")
+    SCRAPING_TIMEOUT: int = Field(default=30, description="Scraping timeout")
     
-    # Rate Limiting
-    RATE_LIMIT_PER_MINUTE: int = Field(default=60, description="Rate limit per minute")
+    # OpenAI Settings
+    OPENAI_MODEL: str = Field(default="gpt-3.5-turbo", description="OpenAI model")
+    OPENAI_MAX_TOKENS: int = Field(default=1000, description="OpenAI max tokens")
+    OPENAI_TEMPERATURE: float = Field(default=0.3, description="OpenAI temperature")
     
-    # CORS Settings
-    CORS_ORIGINS: List[str] = Field(default=["*"], description="CORS allowed origins")
+    # Feature Flags
+    ENABLE_CACHING: bool = Field(default=False, description="Enable caching")
+    ENABLE_ANALYTICS: bool = Field(default=False, description="Enable analytics")
     
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = True
+    @property
+    def is_development(self) -> bool:
+        """Check if running in development mode"""
+        return self.ENVIRONMENT == "development"
+    
+    @property
+    def is_production(self) -> bool:
+        """Check if running in production mode"""
+        return self.ENVIRONMENT == "production"
 
 # Global settings instance
 settings = Settings()

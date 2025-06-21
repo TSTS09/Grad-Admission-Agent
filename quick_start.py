@@ -109,6 +109,10 @@ async def test_basic_functionality():
     print("3. Testing Basic Functionality...")
     
     try:
+        # Import here to avoid issues if imports fail
+        from app.agents.cost_effective_agents import ChatOrchestrator
+        from app.scrapers.real_university_scraper import ScrapingOrchestrator
+        
         # Test chat orchestrator
         chat_orchestrator = ChatOrchestrator()
         print("   ✅ ChatOrchestrator initialized")
@@ -123,6 +127,7 @@ async def test_basic_functionality():
             response = await chat_orchestrator.process_query(test_query)
             if response and "response" in response:
                 print("   ✅ Basic chat processing works")
+                print(f"   📝 Sample response: {response['response'][:100]}...")
             else:
                 print("   ⚠️  Chat processing returned unexpected format")
         except Exception as e:
@@ -244,6 +249,7 @@ async def main():
         print("1. Make sure your .env file has valid API keys")
         print("2. Set up Firebase credentials if using Firebase")
         print("3. Run the application: python app/main.py")
+        print("4. Visit: http://localhost:8000")
     else:
         print("⚠️  Some issues found. Please check details above.")
         
