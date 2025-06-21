@@ -1,4 +1,4 @@
-# app/main.py - Intelligent Web Scraping for Grad Admissions
+# app/main.py - Intelligent Web Scraping with Gemini API
 import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
@@ -21,19 +21,19 @@ scraping_agent = None
 async def lifespan(app: FastAPI):
     """Application lifespan management"""
     # Startup
-    logger.info("Starting Intelligent Grad Admissions Scraping Assistant")
+    logger.info("Starting Intelligent Grad Admissions Scraping Assistant with Gemini")
     
-    # Get OpenAI API key
-    openai_api_key = os.getenv("OPENAI_API_KEY")
-    if not openai_api_key:
-        logger.error("OPENAI_API_KEY environment variable not set!")
-        raise ValueError("OpenAI API key is required")
+    # Get Gemini API key
+    gemini_api_key = os.getenv("GEMINI_API_KEY")
+    if not gemini_api_key:
+        logger.error("GEMINI_API_KEY environment variable not set!")
+        raise ValueError("Gemini API key is required")
     
     # Initialize intelligent scraping agent
     global scraping_agent
-    scraping_agent = IntelligentScrapingAgent(openai_api_key)
+    scraping_agent = IntelligentScrapingAgent(gemini_api_key)
     
-    logger.info("✅ Intelligent scraping agent initialized")
+    logger.info("✅ Intelligent scraping agent with Gemini initialized")
     
     yield
     
@@ -44,7 +44,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Intelligent Grad Admissions Assistant",
     version="1.0.0",
-    description="AI-powered web scraping for PhD and Master's admission information",
+    description="AI-powered web scraping with Google Gemini for PhD and Master's admission information",
     lifespan=lifespan,
 )
 
@@ -70,15 +70,16 @@ async def serve_dashboard():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Intelligent Grad Admissions Assistant</title>
+    <title>Intelligent Grad Admissions Assistant - Powered by Gemini</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #4285f4 0%, #34a853 100%); min-height: 100vh; }
         
         .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
         .header { text-align: center; color: white; margin-bottom: 40px; }
         .header h1 { font-size: 2.5rem; margin-bottom: 10px; }
         .header p { font-size: 1.1rem; opacity: 0.9; }
+        .header .powered-by { font-size: 0.9rem; margin-top: 10px; background: rgba(255,255,255,0.2); padding: 5px 15px; border-radius: 15px; display: inline-block; }
         
         .main-card { background: white; border-radius: 20px; padding: 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
         
@@ -86,29 +87,33 @@ async def serve_dashboard():
         .search-section h2 { margin-bottom: 20px; color: #333; }
         .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
         .search-box input { flex: 1; padding: 15px; border: 2px solid #e1e5e9; border-radius: 10px; font-size: 16px; }
-        .search-box button { padding: 15px 30px; background: #667eea; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; }
-        .search-box button:hover { background: #5a6fd8; }
+        .search-box button { padding: 15px 30px; background: #4285f4; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; }
+        .search-box button:hover { background: #3367d6; }
         
         .examples { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 30px; }
         .example { padding: 15px; background: #f8f9fa; border-radius: 10px; cursor: pointer; transition: all 0.2s; }
-        .example:hover { background: #e9ecef; transform: translateY(-2px); }
-        .example h4 { color: #667eea; margin-bottom: 5px; }
+        .example:hover { background: #e8f0fe; transform: translateY(-2px); }
+        .example h4 { color: #4285f4; margin-bottom: 5px; }
         .example p { color: #666; font-size: 14px; }
         
         .results-section { margin-top: 30px; }
-        .loading { text-align: center; padding: 40px; color: #667eea; }
-        .result-item { margin: 20px 0; padding: 20px; border: 1px solid #e1e5e9; border-radius: 10px; }
-        .result-item h3 { color: #333; margin-bottom: 10px; }
+        .loading { text-align: center; padding: 40px; color: #4285f4; }
+        .loading::before { content: '🤖'; font-size: 2rem; display: block; margin-bottom: 10px; }
+        .result-item { margin: 20px 0; padding: 25px; border: 1px solid #e1e5e9; border-radius: 10px; }
+        .result-item h3 { color: #333; margin-bottom: 15px; display: flex; align-items: center; }
+        .result-item h3::before { content: '🧠'; margin-right: 10px; }
         .result-item p { color: #666; line-height: 1.6; }
         .source-links { margin-top: 15px; }
-        .source-link { display: inline-block; margin: 5px 5px 5px 0; padding: 5px 10px; background: #e9ecef; border-radius: 5px; text-decoration: none; color: #667eea; font-size: 12px; }
-        .source-link:hover { background: #dee2e6; }
+        .source-link { display: inline-block; margin: 5px 5px 5px 0; padding: 5px 10px; background: #e8f0fe; border-radius: 5px; text-decoration: none; color: #4285f4; font-size: 12px; }
+        .source-link:hover { background: #d2e3fc; }
         
         .history-section { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e1e5e9; }
         .history-item { padding: 10px; margin: 5px 0; background: #f8f9fa; border-radius: 5px; cursor: pointer; }
-        .history-item:hover { background: #e9ecef; }
+        .history-item:hover { background: #e8f0fe; }
         .history-query { font-weight: 600; color: #333; }
         .history-meta { font-size: 12px; color: #666; margin-top: 5px; }
+        
+        .gemini-badge { position: fixed; bottom: 20px; right: 20px; background: #4285f4; color: white; padding: 10px 15px; border-radius: 20px; font-size: 12px; z-index: 1000; }
     </style>
 </head>
 <body>
@@ -116,6 +121,7 @@ async def serve_dashboard():
         <div class="header">
             <h1>🎓 Intelligent Grad Admissions Assistant</h1>
             <p>AI-powered web scraping for PhD and Master's program information</p>
+            <div class="powered-by">Powered by Google Gemini AI</div>
         </div>
         
         <div class="main-card">
@@ -123,7 +129,7 @@ async def serve_dashboard():
                 <h2>Ask anything about PhD or Master's admissions</h2>
                 <div class="search-box">
                     <input type="text" id="queryInput" placeholder="e.g., What are the PhD requirements for computer science at Stanford?" />
-                    <button onclick="performSearch()">Search</button>
+                    <button onclick="performSearch()">Search with Gemini</button>
                 </div>
                 
                 <div class="examples">
@@ -147,7 +153,7 @@ async def serve_dashboard():
             </div>
             
             <div class="results-section" id="results" style="display: none;">
-                <h3>Search Results</h3>
+                <h3>Gemini AI Analysis</h3>
                 <div id="resultsContent"></div>
             </div>
             
@@ -157,6 +163,8 @@ async def serve_dashboard():
             </div>
         </div>
     </div>
+
+    <div class="gemini-badge">🤖 Gemini AI</div>
 
     <script>
         async function performSearch() {
@@ -168,7 +176,7 @@ async def serve_dashboard():
             
             // Show loading
             resultsSection.style.display = 'block';
-            resultsContent.innerHTML = '<div class="loading">🔍 Searching and analyzing websites...</div>';
+            resultsContent.innerHTML = '<div class="loading">Gemini AI is analyzing your query and searching websites...</div>';
             
             try {
                 const response = await fetch('/api/search', {
@@ -196,18 +204,20 @@ async def serve_dashboard():
             
             let html = `
                 <div class="result-item">
-                    <h3>AI Analysis</h3>
-                    <p>${data.response.replace(/\\n/g, '<br>')}</p>
+                    <h3>Gemini AI Analysis</h3>
+                    <div style="white-space: pre-line;">${data.response}</div>
                     
                     ${data.source_links && data.source_links.length > 0 ? `
                         <div class="source-links">
-                            <strong>Sources:</strong><br>
+                            <strong>🔗 Sources:</strong><br>
                             ${data.source_links.map(link => `<a href="${link}" target="_blank" class="source-link">${new URL(link).hostname}</a>`).join('')}
                         </div>
                     ` : ''}
                     
-                    <div style="margin-top: 10px; font-size: 12px; color: #666;">
-                        Confidence: ${Math.round((data.confidence || 0) * 100)}% • Sources: ${data.total_sources || 0}
+                    <div style="margin-top: 15px; padding: 10px; background: #f0f8ff; border-radius: 5px; font-size: 12px; color: #666;">
+                        🎯 Confidence: ${Math.round((data.confidence || 0) * 100)}% • 
+                        📊 Sources: ${data.total_sources || 0} • 
+                        🤖 Powered by Gemini AI
                     </div>
                 </div>
             `;
@@ -231,7 +241,7 @@ async def serve_dashboard():
                     
                     historySection.style.display = 'block';
                     historyContent.innerHTML = data.history.map(item => `
-                        <div class="history-item" onclick="setQuery('${item.user_query}')">
+                        <div class="history-item" onclick="setQuery('${item.user_query.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')">
                             <div class="history-query">${item.user_query}</div>
                             <div class="history-meta">${item.search_timestamp} • Confidence: ${Math.round((item.confidence_score || 0) * 100)}%</div>
                         </div>
@@ -266,9 +276,9 @@ async def search_information(request: dict):
         if not query:
             raise HTTPException(status_code=400, detail="Query is required")
         
-        logger.info(f"Processing search query: {query}")
+        logger.info(f"Processing search query with Gemini: {query}")
         
-        # Use intelligent scraping agent
+        # Use intelligent scraping agent with Gemini
         result = await scraping_agent.process_query(query)
         
         return result
@@ -295,9 +305,10 @@ async def health_check():
         return {
             "status": "healthy",
             "version": "1.0.0",
+            "ai_provider": "Google Gemini",
             "features": [
                 "Intelligent web scraping",
-                "OpenAI-powered analysis",
+                "Gemini-powered analysis",
                 "Real-time information extraction",
                 "Source link compilation"
             ]

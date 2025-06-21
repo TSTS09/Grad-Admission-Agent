@@ -13,6 +13,7 @@ def setup_logging(level="INFO"):
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("aiohttp").setLevel(logging.WARNING)
+    logging.getLogger("google").setLevel(logging.WARNING)
 
 def get_logger(name: str):
     """Get a logger instance"""

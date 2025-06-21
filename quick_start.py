@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Setup script for Intelligent Grad Admissions Scraper
+Setup script for Intelligent Grad Admissions Scraper with Google Gemini
 """
 
 import os
@@ -11,12 +11,13 @@ from pathlib import Path
 
 def print_header():
     print("🎓 Intelligent Grad Admissions Scraper Setup")
-    print("=" * 50)
+    print("=" * 55)
+    print("🤖 Powered by Google Gemini AI")
     print("✅ AI-powered web scraping")
     print("✅ Real information extraction")
     print("✅ Source link compilation")
-    print("✅ Uses OpenAI API")
-    print("=" * 50)
+    print("✅ More cost-effective than OpenAI")
+    print("=" * 55)
 
 def check_python():
     """Check Python version"""
@@ -49,23 +50,29 @@ def install_dependencies():
         return True
     except subprocess.CalledProcessError as e:
         print(f"❌ Failed to install dependencies: {e}")
-        print("Try: pip install fastapi uvicorn openai aiohttp beautifulsoup4")
+        print("Try: pip install fastapi uvicorn google-generativeai aiohttp beautifulsoup4")
         return False
 
 def create_env_file():
-    """Create .env file for API key"""
+    """Create .env file for Gemini API key"""
     print("\n🔑 Setting up environment...")
     
-    env_content = """# Intelligent Grad Admissions Scraper Environment
-OPENAI_API_KEY=your_openai_api_key_here
+    env_content = """# Intelligent Grad Admissions Scraper with Gemini
+GEMINI_API_KEY=your_gemini_api_key_here
 PORT=8000
+
+# To get your Gemini API key:
+# 1. Go to https://makersuite.google.com/app/apikey
+# 2. Create a new API key
+# 3. Replace 'your_gemini_api_key_here' with your actual key
 """
     
     if not os.path.exists(".env"):
         with open(".env", "w") as f:
             f.write(env_content)
         print("✅ Created .env file")
-        print("⚠️  Please add your OpenAI API key to .env file")
+        print("⚠️  Please add your Google Gemini API key to .env file")
+        print("   Get your key at: https://makersuite.google.com/app/apikey")
     else:
         print("✅ .env file already exists")
     
@@ -88,7 +95,7 @@ class Settings:
     VERSION = "1.0.0"
     HOST = "0.0.0.0"
     PORT = int(os.getenv("PORT", 8000))
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
     DATABASE_PATH = "admissions_search.db"
 
 settings = Settings()
@@ -111,6 +118,7 @@ def setup_logging(level="INFO"):
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("aiohttp").setLevel(logging.WARNING)
+    logging.getLogger("google").setLevel(logging.WARNING)
 
 def get_logger(name: str):
     return logging.getLogger(name)
@@ -154,7 +162,7 @@ def create_run_script():
     print("\n🚀 Creating run script...")
     
     run_content = '''#!/usr/bin/env python3
-"""Run the Intelligent Grad Admissions Scraper"""
+"""Run the Intelligent Grad Admissions Scraper with Gemini"""
 
 import sys
 import os
@@ -163,16 +171,22 @@ from pathlib import Path
 # Add current directory to path
 sys.path.append(str(Path(__file__).parent))
 
+# Load environment variables
+from dotenv import load_dotenv
+load_dotenv()
+
 # Check for API key
-if not os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY") == "your_openai_api_key_here":
-    print("❌ Please set your OpenAI API key in the .env file")
-    print("Edit .env and add: OPENAI_API_KEY=your_actual_api_key")
+if not os.getenv("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY") == "your_gemini_api_key_here":
+    print("❌ Please set your Google Gemini API key in the .env file")
+    print("Edit .env and add: GEMINI_API_KEY=your_actual_api_key")
+    print("Get your key at: https://makersuite.google.com/app/apikey")
     sys.exit(1)
 
 import uvicorn
 
 if __name__ == "__main__":
     print("🎓 Starting Intelligent Grad Admissions Scraper...")
+    print("🤖 Powered by Google Gemini AI")
     print("🌐 Dashboard: http://localhost:8000")
     print("🛑 Stop with Ctrl+C")
     print()
@@ -208,6 +222,13 @@ def test_setup():
         conn.execute("SELECT 1")
         conn.close()
         
+        # Test Gemini import
+        try:
+            import google.generativeai as genai
+            print("✅ Google Gemini SDK available")
+        except ImportError:
+            print("⚠️  Google Gemini SDK not installed properly")
+        
         print("✅ Setup test passed")
         return True
         
@@ -215,32 +236,58 @@ def test_setup():
         print(f"❌ Setup test failed: {e}")
         return False
 
+def show_gemini_api_instructions():
+    """Show instructions for getting Gemini API key"""
+    print("\n🔑 Getting Your Google Gemini API Key:")
+    print("=" * 50)
+    print("1. Go to: https://makersuite.google.com/app/apikey")
+    print("2. Sign in with your Google account")
+    print("3. Click 'Create API Key'")
+    print("4. Copy the generated API key")
+    print("5. Edit the .env file and replace 'your_gemini_api_key_here' with your key")
+    print()
+    print("💰 Gemini Pricing Benefits:")
+    print("• Free tier: 15 requests per minute")
+    print("• Very cost-effective compared to OpenAI")
+    print("• Great performance for academic queries")
+
 def show_next_steps():
     """Show next steps"""
-    print("\n" + "=" * 50)
+    print("\n" + "=" * 55)
     print("🎉 SETUP COMPLETE!")
-    print("=" * 50)
+    print("=" * 55)
     
     print("\n📋 Next Steps:")
-    print("1. Add your OpenAI API key to .env file:")
-    print("   OPENAI_API_KEY=your_actual_api_key_here")
+    print("1. Get your Google Gemini API key:")
+    print("   https://makersuite.google.com/app/apikey")
     
-    print("\n2. Start the application:")
+    print("\n2. Add your API key to .env file:")
+    print("   GEMINI_API_KEY=your_actual_api_key_here")
+    
+    print("\n3. Start the application:")
     print("   python run.py")
     
-    print("\n3. Open browser:")
+    print("\n4. Open browser:")
     print("   http://localhost:8000")
     
-    print("\n4. Try queries like:")
+    print("\n5. Try queries like:")
     print("   • 'Stanford PhD computer science requirements'")
     print("   • 'MIT master in AI application deadlines'")
     print("   • 'Berkeley EECS graduate funding opportunities'")
+    print("   • 'How to apply for PhD in machine learning'")
     
-    print("\n🔍 Features:")
-    print("✅ Intelligent web scraping")
-    print("✅ AI-powered information synthesis")
-    print("✅ Real source links")
-    print("✅ Search history tracking")
+    print("\n🤖 Gemini AI Features:")
+    print("✅ Intelligent query understanding")
+    print("✅ Dynamic website discovery")
+    print("✅ Real information synthesis")
+    print("✅ Source link compilation")
+    print("✅ Cost-effective AI processing")
+    
+    print("\n💡 Why Gemini?")
+    print("• More affordable than OpenAI")
+    print("• Excellent for academic content")
+    print("• Fast response times")
+    print("• Google's latest AI technology")
 
 def main():
     """Main setup function"""
@@ -263,8 +310,9 @@ def main():
     create_run_script()
     
     if test_setup():
+        show_gemini_api_instructions()
         show_next_steps()
-        print("\n🎉 Ready to use!")
+        print("\n🎉 Ready to use with Gemini AI!")
     else:
         print("\n⚠️  Setup completed with some issues")
 

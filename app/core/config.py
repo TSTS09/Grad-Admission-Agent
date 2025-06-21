@@ -11,8 +11,8 @@ class Settings:
     HOST = "0.0.0.0"
     PORT = int(os.getenv("PORT", 8000))
     
-    # OpenAI API
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+    # Google Gemini API
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
     
     # Database
     DATABASE_PATH = "admissions_search.db"

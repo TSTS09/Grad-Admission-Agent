@@ -8,16 +8,19 @@ from datetime import datetime
 import sqlite3
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse, quote
-import openai
+import google.generativeai as genai
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
 class IntelligentScrapingAgent:
-    """Intelligent web scraping agent for PhD/Master admissions information"""
+    """Intelligent web scraping agent using Google Gemini API for PhD/Master admissions information"""
     
-    def __init__(self, openai_api_key: str):
-        self.openai_client = openai.AsyncOpenAI(api_key=openai_api_key)
+    def __init__(self, gemini_api_key: str):
+        # Configure Gemini
+        genai.configure(api_key=gemini_api_key)
+        self.model = genai.GenerativeModel('gemini-1.5-flash')
+        
         self.db_path = "admissions_search.db"
         self.session = None
         self._init_database()
@@ -49,7 +52,7 @@ class IntelligentScrapingAgent:
         try:
             logger.info(f"Processing query: {user_query}")
             
-            # Step 1: Understand what the user wants using OpenAI
+            # Step 1: Understand what the user wants using Gemini
             search_plan = await self._analyze_user_intent(user_query)
             
             # Step 2: Find relevant websites to scrape
@@ -76,7 +79,7 @@ class IntelligentScrapingAgent:
             }
     
     async def _analyze_user_intent(self, user_query: str) -> Dict[str, Any]:
-        """Use OpenAI to understand what the user wants to find"""
+        """Use Gemini to understand what the user wants to find"""
         try:
             prompt = f"""
             Analyze this graduate admissions query and create a search plan:
@@ -94,16 +97,11 @@ class IntelligentScrapingAgent:
             }}
             
             Focus on PhD and Master's degree information. Be specific about what to look for.
+            Return only valid JSON, no other text.
             """
             
-            response = await self.openai_client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.1,
-                max_tokens=500
-            )
-            
-            result = json.loads(response.choices[0].message.content)
+            response = self.model.generate_content(prompt)
+            result = json.loads(response.text)
             logger.info(f"Search plan: {result['search_intent']}")
             return result
             
@@ -146,59 +144,84 @@ class IntelligentScrapingAgent:
             return []
     
     async def _get_university_urls(self, university_name: str) -> List[str]:
-        """Get relevant URLs for a specific university"""
-        # This could be expanded with a more comprehensive university database
-        # For now, construct likely URLs
-        university_lower = university_name.lower().replace(" ", "")
-        
-        potential_urls = []
-        
-        # Common university domain patterns
-        common_domains = [
-            f"https://{university_lower}.edu",
-            f"https://www.{university_lower}.edu",
-            f"https://{university_lower}.ac.uk",
-            f"https://www.{university_lower}.ac.uk"
-        ]
-        
-        # Common graduate program paths
-        grad_paths = [
-            "/graduate",
-            "/academics/graduate",
-            "/admissions/graduate",
-            "/graduate-programs",
-            "/phd",
-            "/masters"
-        ]
-        
-        for domain in common_domains:
-            potential_urls.append(domain)
-            for path in grad_paths:
-                potential_urls.append(domain + path)
-        
-        return potential_urls
+        """Get relevant URLs for a specific university using Gemini"""
+        try:
+            prompt = f"""
+            For the university "{university_name}", provide likely URLs for graduate admissions information.
+            
+            Return a JSON list of URLs like:
+            [
+                "https://university.edu/graduate",
+                "https://university.edu/admissions/graduate",
+                "https://cs.university.edu/graduate"
+            ]
+            
+            Focus on:
+            - Main graduate admissions pages
+            - Department graduate programs
+            - PhD and Master's program pages
+            
+            Return only valid JSON array, no other text.
+            """
+            
+            response = self.model.generate_content(prompt)
+            urls = json.loads(response.text)
+            
+            # Also add some common patterns
+            university_lower = university_name.lower().replace(" ", "").replace("university", "").replace("of", "")
+            
+            common_patterns = [
+                f"https://{university_lower}.edu/graduate",
+                f"https://www.{university_lower}.edu/admissions",
+                f"https://grad.{university_lower}.edu",
+                f"https://gradschool.{university_lower}.edu"
+            ]
+            
+            urls.extend(common_patterns)
+            return list(set(urls))  # Remove duplicates
+            
+        except Exception as e:
+            logger.error(f"Error getting university URLs: {e}")
+            # Fallback to basic patterns
+            university_lower = university_name.lower().replace(" ", "")
+            return [
+                f"https://{university_lower}.edu",
+                f"https://www.{university_lower}.edu/graduate"
+            ]
     
     async def _search_for_relevant_sites(self, search_plan: Dict[str, Any]) -> List[str]:
-        """Use search terms to find relevant websites"""
-        # Construct search queries and find relevant sites
-        # This is a simplified version - could be enhanced with search engines
-        
-        search_terms = search_plan.get("search_terms", [])
-        query = " ".join(search_terms) + " PhD Master admission university"
-        
-        # For now, return some common graduate admission related sites
-        # In a full implementation, you'd use a search API here
-        common_sites = [
-            "https://www.harvard.edu/academics/graduate-and-professional-programs/",
-            "https://www.stanford.edu/academics/",
-            "https://www.mit.edu/academics/grad.html",
-            "https://www.berkeley.edu/academics/",
-            "https://www.cmu.edu/graduate/",
-            "https://www.caltech.edu/academics/graduate",
-            "https://www.princeton.edu/academics/graduate-school/"
-        ]
-        
-        return common_sites
+        """Use Gemini to suggest relevant websites based on search terms"""
+        try:
+            prompt = f"""
+            Based on this search plan: {json.dumps(search_plan)}
+            
+            Suggest 8-10 university websites that would likely have this information.
+            Focus on major research universities with strong graduate programs.
+            
+            Return a JSON list of URLs like:
+            [
+                "https://stanford.edu/academics/graduate",
+                "https://mit.edu/academics/grad.html"
+            ]
+            
+            Return only valid JSON array, no other text.
+            """
+            
+            response = self.model.generate_content(prompt)
+            urls = json.loads(response.text)
+            return urls
+            
+        except Exception as e:
+            logger.error(f"Error finding relevant sites: {e}")
+            # Fallback to common graduate sites
+            return [
+                "https://www.harvard.edu/academics/graduate-and-professional-programs/",
+                "https://www.stanford.edu/academics/",
+                "https://www.mit.edu/academics/grad.html",
+                "https://www.berkeley.edu/academics/",
+                "https://www.cmu.edu/graduate/",
+                "https://www.caltech.edu/academics/graduate"
+            ]
     
     async def _scrape_websites(self, websites: List[str], search_plan: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Scrape the identified websites for relevant information"""
@@ -263,13 +286,16 @@ class IntelligentScrapingAgent:
             
             # Extract headings
             for heading in soup.find_all(['h1', 'h2', 'h3', 'h4']):
-                info["headings"].append(heading.get_text().strip())
+                text = heading.get_text().strip()
+                if text and len(text) < 200:  # Reasonable heading length
+                    info["headings"].append(text)
             
             # Extract relevant links
             for link in soup.find_all('a', href=True):
                 link_text = link.get_text().strip()
                 link_url = urljoin(url, link['href'])
-                if any(keyword in link_text.lower() for keyword in ['admission', 'phd', 'master', 'graduate', 'program', 'requirement']):
+                if link_text and any(keyword in link_text.lower() for keyword in 
+                    ['admission', 'phd', 'master', 'graduate', 'program', 'requirement', 'apply', 'deadline']):
                     info["links"].append({"text": link_text, "url": link_url})
             
             # Extract tables (often contain admission requirements)
@@ -277,19 +303,23 @@ class IntelligentScrapingAgent:
                 table_data = []
                 for row in table.find_all('tr'):
                     row_data = [cell.get_text().strip() for cell in row.find_all(['td', 'th'])]
-                    if row_data:
+                    if row_data and any(cell for cell in row_data):  # Non-empty row
                         table_data.append(row_data)
                 if table_data:
                     info["tables"].append(table_data)
             
             # Extract lists (requirements, deadlines, etc.)
             for ul in soup.find_all(['ul', 'ol']):
-                list_items = [li.get_text().strip() for li in ul.find_all('li')]
+                list_items = []
+                for li in ul.find_all('li'):
+                    item_text = li.get_text().strip()
+                    if item_text and len(item_text) < 500:  # Reasonable item length
+                        list_items.append(item_text)
                 if list_items:
                     info["lists"].append(list_items)
             
             # Get relevant text content (limited to avoid too much data)
-            info["text_content"] = page_text[:2000]  # First 2000 characters
+            info["text_content"] = page_text[:3000]  # First 3000 characters
             
             return info
             
@@ -298,9 +328,9 @@ class IntelligentScrapingAgent:
             return {"error": str(e)}
     
     async def _synthesize_information(self, user_query: str, scraped_data: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Use OpenAI to synthesize the scraped information into a helpful response"""
+        """Use Gemini to synthesize the scraped information into a helpful response"""
         try:
-            # Prepare scraped content for OpenAI
+            # Prepare scraped content for Gemini
             content_summary = []
             source_links = []
             
@@ -311,11 +341,11 @@ class IntelligentScrapingAgent:
                         "title": data.get("title", ""),
                         "headings": data["content"].get("headings", [])[:5],  # Top 5 headings
                         "links": data["content"].get("links", [])[:5],  # Top 5 relevant links
-                        "text_preview": data["content"].get("text_content", "")[:500]  # First 500 chars
+                        "text_preview": data["content"].get("text_content", "")[:800]  # First 800 chars
                     })
                     source_links.append(data["url"])
             
-            # Use OpenAI to synthesize the information
+            # Use Gemini to synthesize the information
             synthesis_prompt = f"""
             User asked: "{user_query}"
             
@@ -325,20 +355,16 @@ class IntelligentScrapingAgent:
             Please provide a comprehensive, helpful response that:
             1. Directly answers the user's question
             2. Includes specific information found (requirements, deadlines, contact info, etc.)
-            3. Mentions which sources the information came from
-            4. Suggests next steps or additional resources if relevant
+            3. Organizes information clearly with headings and bullet points
+            4. Mentions which sources the information came from
+            5. Suggests next steps or additional resources if relevant
             
             Focus on PhD and Master's admission information. Be specific and factual.
+            Format your response in clear, readable text with proper structure.
             """
             
-            response = await self.openai_client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[{"role": "user", "content": synthesis_prompt}],
-                temperature=0.3,
-                max_tokens=800
-            )
-            
-            synthesized_response = response.choices[0].message.content
+            response = self.model.generate_content(synthesis_prompt)
+            synthesized_response = response.text
             
             # Calculate confidence based on amount of relevant data found
             confidence = min(0.9, len(scraped_data) * 0.1 + (len(source_links) * 0.05))
