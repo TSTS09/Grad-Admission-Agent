@@ -2,10 +2,9 @@ import logging
 import sys
 from typing import Any, Dict
 import structlog
-from app.core.config import settings
 
-def setup_logging():
-    """Setup structured logging"""
+def setup_logging(log_level: str = "INFO", log_format: str = "json"):
+    """Setup structured logging with configurable level and format"""
     
     # Configure structlog
     structlog.configure(
@@ -18,7 +17,7 @@ def setup_logging():
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
             structlog.processors.UnicodeDecoder(),
-            structlog.processors.JSONRenderer() if settings.LOG_FORMAT == "json" else structlog.dev.ConsoleRenderer(),
+            structlog.processors.JSONRenderer() if log_format == "json" else structlog.dev.ConsoleRenderer(),
         ],
         context_class=dict,
         logger_factory=structlog.stdlib.LoggerFactory(),
@@ -30,7 +29,7 @@ def setup_logging():
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stdout,
-        level=getattr(logging, settings.LOG_LEVEL.upper()),
+        level=getattr(logging, log_level.upper()),
     )
     
     # Reduce noise from external libraries
@@ -41,3 +40,6 @@ def setup_logging():
 def get_logger(name: str) -> Any:
     """Get a logger instance"""
     return structlog.get_logger(name)
+
+# Setup default logging immediately (can be reconfigured later)
+setup_logging()
