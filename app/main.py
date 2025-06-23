@@ -1,50 +1,66 @@
-# app/main.py - Intelligent Web Scraping with Gemini API
+# app/main.py - Updated with Real-Time Scraping System
+
 import os
+import asyncio
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
+from pydantic import BaseModel
 import uvicorn
+from datetime import datetime
 
-from app.agents.intelligent_scraper import IntelligentScrapingAgent
+from app.agents.realtime_intelligence_agent import EnhancedChatAgent
+from app.core.config import settings
 from app.core.logging import setup_logging, get_logger
+from app.core.firebase_config import init_firebase
 
 # Initialize logging
 setup_logging()
 logger = get_logger(__name__)
 
-# Global agent
-scraping_agent = None
+# Global chat agent
+enhanced_chat_agent = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan management"""
     # Startup
-    logger.info("Starting Intelligent Grad Admissions Scraping Assistant with Gemini")
+    logger.info("🚀 Starting Real-Time Graduate Admissions Intelligence System")
     
-    # Get Gemini API key
-    gemini_api_key = os.getenv("GEMINI_API_KEY")
-    if not gemini_api_key:
-        logger.error("GEMINI_API_KEY environment variable not set!")
-        raise ValueError("Gemini API key is required")
+    # Validate required API keys
+    required_keys = ["GEMINI_API_KEY"]
+    missing_keys = [key for key in required_keys if not getattr(settings, key, None)]
     
-    # Initialize intelligent scraping agent
-    global scraping_agent
-    scraping_agent = IntelligentScrapingAgent(gemini_api_key)
+    if missing_keys:
+        logger.error(f"❌ Missing required API keys: {missing_keys}")
+        raise ValueError(f"Missing API keys: {missing_keys}")
     
-    logger.info("✅ Intelligent scraping agent with Gemini initialized")
+    # Initialize Firebase (optional)
+    try:
+        await init_firebase()
+        logger.info("✅ Firebase initialized")
+    except Exception as e:
+        logger.warning(f"⚠️ Firebase initialization failed: {e}")
+    
+    # Initialize enhanced chat agent with real-time scraping
+    global enhanced_chat_agent
+    enhanced_chat_agent = EnhancedChatAgent()
+    
+    logger.info("✅ Real-time intelligence agent initialized")
+    logger.info("🌐 System ready for dynamic web scraping")
     
     yield
     
     # Shutdown
-    logger.info("Shutting down application")
+    logger.info("🛑 Shutting down application")
 
 # Create FastAPI app
 app = FastAPI(
-    title="Intelligent Grad Admissions Assistant",
-    version="1.0.0",
-    description="AI-powered web scraping with Google Gemini for PhD and Master's admission information",
+    title="Graduate Admissions Intelligence System",
+    version="2.0.0",
+    description="Real-time web scraping and AI-powered graduate admissions intelligence",
     lifespan=lifespan,
 )
 
@@ -60,265 +76,291 @@ app.add_middleware(
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Pydantic models
+class ChatRequest(BaseModel):
+    message: str
+    session_id: str = None
+    context: dict = {}
+
+class ChatResponse(BaseModel):
+    response: str
+    session_id: str
+    faculty_matches: list = []
+    program_matches: list = []
+    key_insights: list = []
+    confidence_score: float = 0.0
+    sources: list = []
+    data_sources_count: int = 0
+    last_updated: str = ""
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_dashboard():
-    """Serve the main dashboard"""
+    """Serve the enhanced dashboard with real-time capabilities"""
     try:
-        html_content = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Intelligent Grad Admissions Assistant - Powered by Gemini</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #4285f4 0%, #34a853 100%); min-height: 100vh; }
+        with open("static/dashboard.html", "r") as f:
+            html_content = f.read()
         
-        .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
-        .header { text-align: center; color: white; margin-bottom: 40px; }
-        .header h1 { font-size: 2.5rem; margin-bottom: 10px; }
-        .header p { font-size: 1.1rem; opacity: 0.9; }
-        .header .powered-by { font-size: 0.9rem; margin-top: 10px; background: rgba(255,255,255,0.2); padding: 5px 15px; border-radius: 15px; display: inline-block; }
+        # Update the HTML to show real-time capabilities
+        updated_html = html_content.replace(
+            "AI-powered admissions guide", 
+            "Real-time AI intelligence with live web scraping"
+        )
         
-        .main-card { background: white; border-radius: 20px; padding: 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
-        
-        .search-section { margin-bottom: 30px; }
-        .search-section h2 { margin-bottom: 20px; color: #333; }
-        .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
-        .search-box input { flex: 1; padding: 15px; border: 2px solid #e1e5e9; border-radius: 10px; font-size: 16px; }
-        .search-box button { padding: 15px 30px; background: #4285f4; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; }
-        .search-box button:hover { background: #3367d6; }
-        
-        .examples { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 30px; }
-        .example { padding: 15px; background: #f8f9fa; border-radius: 10px; cursor: pointer; transition: all 0.2s; }
-        .example:hover { background: #e8f0fe; transform: translateY(-2px); }
-        .example h4 { color: #4285f4; margin-bottom: 5px; }
-        .example p { color: #666; font-size: 14px; }
-        
-        .results-section { margin-top: 30px; }
-        .loading { text-align: center; padding: 40px; color: #4285f4; }
-        .loading::before { content: '🤖'; font-size: 2rem; display: block; margin-bottom: 10px; }
-        .result-item { margin: 20px 0; padding: 25px; border: 1px solid #e1e5e9; border-radius: 10px; }
-        .result-item h3 { color: #333; margin-bottom: 15px; display: flex; align-items: center; }
-        .result-item h3::before { content: '🧠'; margin-right: 10px; }
-        .result-item p { color: #666; line-height: 1.6; }
-        .source-links { margin-top: 15px; }
-        .source-link { display: inline-block; margin: 5px 5px 5px 0; padding: 5px 10px; background: #e8f0fe; border-radius: 5px; text-decoration: none; color: #4285f4; font-size: 12px; }
-        .source-link:hover { background: #d2e3fc; }
-        
-        .history-section { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e1e5e9; }
-        .history-item { padding: 10px; margin: 5px 0; background: #f8f9fa; border-radius: 5px; cursor: pointer; }
-        .history-item:hover { background: #e8f0fe; }
-        .history-query { font-weight: 600; color: #333; }
-        .history-meta { font-size: 12px; color: #666; margin-top: 5px; }
-        
-        .gemini-badge { position: fixed; bottom: 20px; right: 20px; background: #4285f4; color: white; padding: 10px 15px; border-radius: 20px; font-size: 12px; z-index: 1000; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🎓 Intelligent Grad Admissions Assistant</h1>
-            <p>AI-powered web scraping for PhD and Master's program information</p>
-            <div class="powered-by">Powered by Google Gemini AI</div>
-        </div>
-        
-        <div class="main-card">
-            <div class="search-section">
-                <h2>Ask anything about PhD or Master's admissions</h2>
-                <div class="search-box">
-                    <input type="text" id="queryInput" placeholder="e.g., What are the PhD requirements for computer science at Stanford?" />
-                    <button onclick="performSearch()">Search with Gemini</button>
+        return HTMLResponse(content=updated_html)
+    except FileNotFoundError:
+        return HTMLResponse("""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Graduate Admissions Intelligence</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+                .container { max-width: 800px; margin: 0 auto; text-align: center; }
+                .card { background: rgba(255,255,255,0.1); padding: 30px; border-radius: 15px; margin: 20px 0; }
+                .btn { background: #4CAF50; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px; }
+                .feature { background: rgba(255,255,255,0.05); padding: 20px; margin: 10px; border-radius: 10px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🎓 Graduate Admissions Intelligence System</h1>
+                <div class="card">
+                    <h2>Real-Time Web Scraping & AI Analysis</h2>
+                    <p>Dynamic intelligence for PhD and Master's applications with live data from universities, Reddit, Twitter, and academic forums.</p>
+                    <a href="/chat" class="btn">Start Chat Intelligence</a>
+                    <a href="/api/v1/docs" class="btn">API Documentation</a>
                 </div>
                 
-                <div class="examples">
-                    <div class="example" onclick="setQuery('What are the PhD admission requirements for MIT computer science?')">
-                        <h4>📚 PhD Requirements</h4>
-                        <p>Find specific admission requirements for PhD programs</p>
-                    </div>
-                    <div class="example" onclick="setQuery('Stanford master in AI program details and deadlines')">
-                        <h4>⏰ Program Details</h4>
-                        <p>Get program information and application deadlines</p>
-                    </div>
-                    <div class="example" onclick="setQuery('Berkeley EECS graduate program funding opportunities')">
-                        <h4>💰 Funding Info</h4>
-                        <p>Find funding and financial aid information</p>
-                    </div>
-                    <div class="example" onclick="setQuery('How to contact professors for PhD positions in machine learning')">
-                        <h4>👨‍🏫 Faculty Contact</h4>
-                        <p>Learn how to reach out to potential advisors</p>
-                    </div>
+                <div class="feature">
+                    <h3>🔍 Real-Time Data Sources</h3>
+                    <p>• University websites and faculty pages<br>
+                    • Reddit graduate admissions discussions<br>
+                    • Twitter academic announcements<br>
+                    • Academic job boards and forums</p>
+                </div>
+                
+                <div class="feature">
+                    <h3>🤖 AI-Powered Analysis</h3>
+                    <p>• Faculty hiring status detection<br>
+                    • Program requirement extraction<br>
+                    • Application deadline tracking<br>
+                    • Personalized advice generation</p>
+                </div>
+                
+                <div class="feature">
+                    <h3>📊 Live Intelligence</h3>
+                    <p>• No hardcoded data - everything scraped in real-time<br>
+                    • Query-driven research based on your specific needs<br>
+                    • Multiple source verification and confidence scoring</p>
                 </div>
             </div>
-            
-            <div class="results-section" id="results" style="display: none;">
-                <h3>Gemini AI Analysis</h3>
-                <div id="resultsContent"></div>
-            </div>
-            
-            <div class="history-section" id="historySection" style="display: none;">
-                <h3>Recent Searches</h3>
-                <div id="historyContent"></div>
-            </div>
-        </div>
-    </div>
+        </body>
+        </html>
+        """)
 
-    <div class="gemini-badge">🤖 Gemini AI</div>
-
-    <script>
-        async function performSearch() {
-            const query = document.getElementById('queryInput').value.trim();
-            if (!query) return;
-            
-            const resultsSection = document.getElementById('results');
-            const resultsContent = document.getElementById('resultsContent');
-            
-            // Show loading
-            resultsSection.style.display = 'block';
-            resultsContent.innerHTML = '<div class="loading">Gemini AI is analyzing your query and searching websites...</div>';
-            
-            try {
-                const response = await fetch('/api/search', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: query })
-                });
-                
-                const data = await response.json();
-                displayResults(data);
-                loadHistory();
-                
-            } catch (error) {
-                resultsContent.innerHTML = `<div class="result-item"><h3>Error</h3><p>Failed to search: ${error.message}</p></div>`;
-            }
-        }
-        
-        function displayResults(data) {
-            const resultsContent = document.getElementById('resultsContent');
-            
-            if (!data.response) {
-                resultsContent.innerHTML = '<div class="result-item"><h3>No results</h3><p>No information found for your query.</p></div>';
-                return;
-            }
-            
-            let html = `
-                <div class="result-item">
-                    <h3>Gemini AI Analysis</h3>
-                    <div style="white-space: pre-line;">${data.response}</div>
-                    
-                    ${data.source_links && data.source_links.length > 0 ? `
-                        <div class="source-links">
-                            <strong>🔗 Sources:</strong><br>
-                            ${data.source_links.map(link => `<a href="${link}" target="_blank" class="source-link">${new URL(link).hostname}</a>`).join('')}
-                        </div>
-                    ` : ''}
-                    
-                    <div style="margin-top: 15px; padding: 10px; background: #f0f8ff; border-radius: 5px; font-size: 12px; color: #666;">
-                        🎯 Confidence: ${Math.round((data.confidence || 0) * 100)}% • 
-                        📊 Sources: ${data.total_sources || 0} • 
-                        🤖 Powered by Gemini AI
+@app.get("/chat", response_class=HTMLResponse)
+async def serve_chat():
+    """Serve the chat interface"""
+    try:
+        with open("static/chat.html", "r") as f:
+            return HTMLResponse(content=f.read())
+    except FileNotFoundError:
+        return HTMLResponse("""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Chat - Graduate Admissions Intelligence</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); height: 100vh; }
+                .chat-container { max-width: 800px; margin: 0 auto; padding: 20px; height: 100vh; display: flex; flex-direction: column; }
+                .chat-header { background: rgba(255,255,255,0.1); padding: 20px; border-radius: 15px 15px 0 0; }
+                .chat-messages { flex: 1; background: rgba(255,255,255,0.05); padding: 20px; overflow-y: auto; }
+                .chat-input { background: rgba(255,255,255,0.1); padding: 20px; border-radius: 0 0 15px 15px; display: flex; gap: 10px; }
+                .chat-input input { flex: 1; padding: 10px; border: none; border-radius: 5px; }
+                .chat-input button { padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }
+                .message { margin: 10px 0; padding: 10px; border-radius: 10px; }
+                .user { background: rgba(255,255,255,0.2); text-align: right; }
+                .assistant { background: rgba(255,255,255,0.1); }
+                h1, h2, p { color: white; margin: 10px 0; }
+            </style>
+        </head>
+        <body>
+            <div class="chat-container">
+                <div class="chat-header">
+                    <h1>🎓 Graduate Admissions Chat Intelligence</h1>
+                    <p>Ask me anything about graduate admissions. I'll scrape real-time data to give you current information.</p>
+                </div>
+                <div class="chat-messages" id="messages">
+                    <div class="message assistant">
+                        <strong>🤖 Assistant:</strong> Hello! I can help you with real-time graduate admissions intelligence. Try asking:
+                        <br>• "Which CS professors at Stanford are hiring PhD students?"
+                        <br>• "What are the latest discussions about MIT EECS PhD admissions?"
+                        <br>• "Tell me about recent faculty hiring at top ML programs"
                     </div>
                 </div>
-            `;
+                <div class="chat-input">
+                    <input type="text" id="messageInput" placeholder="Ask about graduate admissions..." onkeypress="handleKeyPress(event)">
+                    <button onclick="sendMessage()">Send</button>
+                </div>
+            </div>
             
-            resultsContent.innerHTML = html;
-        }
-        
-        function setQuery(query) {
-            document.getElementById('queryInput').value = query;
-            performSearch();
-        }
-        
-        async function loadHistory() {
-            try {
-                const response = await fetch('/api/history');
-                const data = await response.json();
-                
-                if (data.history && data.history.length > 0) {
-                    const historySection = document.getElementById('historySection');
-                    const historyContent = document.getElementById('historyContent');
+            <script>
+                async function sendMessage() {
+                    const input = document.getElementById('messageInput');
+                    const message = input.value.trim();
+                    if (!message) return;
                     
-                    historySection.style.display = 'block';
-                    historyContent.innerHTML = data.history.map(item => `
-                        <div class="history-item" onclick="setQuery('${item.user_query.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')">
-                            <div class="history-query">${item.user_query}</div>
-                            <div class="history-meta">${item.search_timestamp} • Confidence: ${Math.round((item.confidence_score || 0) * 100)}%</div>
-                        </div>
-                    `).join('');
+                    const messagesDiv = document.getElementById('messages');
+                    
+                    // Add user message
+                    messagesDiv.innerHTML += `<div class="message user"><strong>You:</strong> ${message}</div>`;
+                    
+                    // Add loading message
+                    messagesDiv.innerHTML += `<div class="message assistant" id="loading"><strong>🤖 Assistant:</strong> 🔍 Scraping real-time data and analyzing...</div>`;
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                    
+                    input.value = '';
+                    
+                    try {
+                        const response = await fetch('/api/v1/chat/query', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ message: message })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        // Remove loading message
+                        document.getElementById('loading').remove();
+                        
+                        // Add response
+                        let responseHtml = `<div class="message assistant"><strong>🤖 Assistant:</strong> ${data.response}`;
+                        
+                        if (data.key_insights && data.key_insights.length > 0) {
+                            responseHtml += `<br><br><strong>🔍 Key Insights:</strong><br>`;
+                            data.key_insights.forEach(insight => {
+                                responseHtml += `• ${insight}<br>`;
+                            });
+                        }
+                        
+                        if (data.sources && data.sources.length > 0) {
+                            responseHtml += `<br><br><strong>📚 Sources (${data.sources.length}):</strong> Real-time data from universities, Reddit, Twitter, and academic forums`;
+                        }
+                        
+                        responseHtml += `<br><br><small>Confidence: ${(data.confidence_score * 100).toFixed(0)}% | Sources: ${data.data_sources_count} | Updated: ${new Date().toLocaleTimeString()}</small></div>`;
+                        
+                        messagesDiv.innerHTML += responseHtml;
+                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                        
+                    } catch (error) {
+                        document.getElementById('loading').remove();
+                        messagesDiv.innerHTML += `<div class="message assistant"><strong>🤖 Assistant:</strong> Sorry, I encountered an error while scraping data. Please try again.</div>`;
+                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                    }
                 }
-            } catch (error) {
-                console.error('Failed to load history:', error);
-            }
-        }
-        
-        // Handle Enter key
-        document.getElementById('queryInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') performSearch();
-        });
-        
-        // Load history on page load
-        document.addEventListener('DOMContentLoaded', loadHistory);
-    </script>
-</body>
-</html>
-        """
-        return HTMLResponse(content=html_content)
-    except Exception as e:
-        logger.error(f"Error serving dashboard: {e}")
-        return HTMLResponse(f"<h1>Error: {e}</h1>")
+                
+                function handleKeyPress(event) {
+                    if (event.key === 'Enter') {
+                        sendMessage();
+                    }
+                }
+            </script>
+        </body>
+        </html>
+        """)
 
-@app.post("/api/search")
-async def search_information(request: dict):
-    """Main search endpoint - handles any query about grad admissions"""
+@app.post("/api/v1/chat/query", response_model=ChatResponse)
+async def chat_query(request: ChatRequest):
+    """Main chat endpoint with real-time web scraping"""
+    
+    if not enhanced_chat_agent:
+        raise HTTPException(status_code=500, detail="Chat agent not initialized")
+    
+    start_time = datetime.now()
+    
     try:
-        query = request.get("query", "").strip()
-        if not query:
-            raise HTTPException(status_code=400, detail="Query is required")
+        logger.info(f"Processing real-time query: {request.message}")
         
-        logger.info(f"Processing search query with Gemini: {query}")
+        # Process with real-time scraping
+        result = await enhanced_chat_agent.process_message(
+            message=request.message,
+            session_id=request.session_id
+        )
         
-        # Use intelligent scraping agent with Gemini
-        result = await scraping_agent.process_query(query)
+        processing_time = (datetime.now() - start_time).total_seconds()
+        logger.info(f"Query processed in {processing_time:.2f}s with {result.get('data_sources_count', 0)} sources")
         
-        return result
+        return ChatResponse(
+            response=result.get("response", ""),
+            session_id=result.get("session_id", ""),
+            faculty_matches=result.get("faculty_matches", []),
+            program_matches=result.get("program_matches", []),
+            key_insights=result.get("key_insights", []),
+            confidence_score=result.get("confidence_score", 0.0),
+            sources=result.get("sources", []),
+            data_sources_count=result.get("data_sources_count", 0),
+            last_updated=result.get("last_updated", datetime.now().isoformat())
+        )
         
     except Exception as e:
-        logger.error(f"Search error: {e}")
-        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+        logger.error(f"Error in chat query: {e}")
+        raise HTTPException(status_code=500, detail=f"Error processing query: {str(e)}")
 
-@app.get("/api/history")
-async def get_search_history():
-    """Get recent search history"""
-    try:
-        history = scraping_agent.get_search_history(limit=5)
-        return {"history": history}
-        
-    except Exception as e:
-        logger.error(f"History error: {e}")
-        return {"history": []}
-
-@app.get("/health")
+@app.get("/api/v1/health")
 async def health_check():
-    """Health check endpoint"""
+    """Enhanced health check with scraping capabilities"""
+    
     try:
-        return {
+        health_info = {
             "status": "healthy",
-            "version": "1.0.0",
-            "ai_provider": "Google Gemini",
+            "version": "2.0.0",
             "features": [
-                "Intelligent web scraping",
-                "Gemini-powered analysis",
-                "Real-time information extraction",
-                "Source link compilation"
-            ]
+                "Real-time web scraping",
+                "Multi-source intelligence (Reddit, Twitter, Universities)",
+                "AI-powered synthesis with Gemini",
+                "Dynamic query-based research"
+            ],
+            "capabilities": {
+                "reddit_scraping": hasattr(settings, 'REDDIT_CLIENT_ID') and settings.REDDIT_CLIENT_ID,
+                "twitter_scraping": hasattr(settings, 'TWITTER_BEARER_TOKEN') and settings.TWITTER_BEARER_TOKEN,
+                "google_search": hasattr(settings, 'SERPAPI_KEY') and settings.SERPAPI_KEY,
+                "gemini_ai": hasattr(settings, 'GEMINI_API_KEY') and settings.GEMINI_API_KEY
+            },
+            "timestamp": datetime.now().isoformat()
         }
+        
+        return health_info
+        
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         return JSONResponse(
             status_code=503,
             content={"status": "unhealthy", "error": str(e)}
         )
+
+@app.get("/api/v1/test-scraping")
+async def test_scraping():
+    """Test endpoint to verify scraping capabilities"""
+    
+    if not enhanced_chat_agent:
+        raise HTTPException(status_code=500, detail="Chat agent not initialized")
+    
+    try:
+        # Test with a simple query
+        test_result = await enhanced_chat_agent.process_message(
+            "Test query: CS PhD programs at Stanford"
+        )
+        
+        return {
+            "status": "success",
+            "sources_found": test_result.get("data_sources_count", 0),
+            "response_preview": test_result.get("response", "")[:200] + "...",
+            "confidence": test_result.get("confidence_score", 0.0)
+        }
+        
+    except Exception as e:
+        logger.error(f"Scraping test failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Scraping test failed: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run(
